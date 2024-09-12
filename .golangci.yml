@@ -1,0 +1,25 @@
+run:
+  timeout: 10m
+
+linters:
+  presets:
+    - bugs
+    - error
+    - unused
+    - performance
+  disable-all: true
+  enable:
+    - bidichk
+    - durationcheck
+    - exportloopref
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - typecheck
+    - unused
+    - unconvert
+    - revive
+    - whitespace
