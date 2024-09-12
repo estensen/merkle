@@ -17,7 +17,7 @@ func main() {
 
 	// Initialize a Merkle tree with SHA-256
 	hashFunc := sha256.New()
-	tree, err := merkle.NewMerkleTree(leaves, hashFunc)
+	tree, err := merkle.NewTree(leaves, hashFunc)
 	if err != nil {
 		fmt.Printf("Failed to create Merkle tree: %v\n", err)
 		return
@@ -33,7 +33,6 @@ func main() {
 	isValid := tree.VerifyProof(proof, []byte("leaf1"))
 	if !isValid {
 		panic("failed to verify proof for leaf1")
-	} else {
-		fmt.Println("leaf1 is in the tree")
 	}
+	fmt.Println("leaf1 is in the tree")
 }

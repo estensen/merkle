@@ -12,7 +12,7 @@ import (
 var (
 	ErrNoLeaves         = errors.New("cannot create a tree with no leaves")
 	ErrNoVal            = errors.New("value not found in the tree")
-	ErrIndexOutOfBounds = fmt.Errorf("index out of bounds")
+	ErrIndexOutOfBounds = errors.New("index out of bounds")
 )
 
 // Node represents a node in the Merkle tree
@@ -27,21 +27,21 @@ func NewNode(hash, val []byte) *Node {
 	return &Node{Hash: hash, Value: val}
 }
 
-// MerkleTree represents a Merkle tree
-type MerkleTree struct {
+// Tree represents a Merkle tree
+type Tree struct {
 	Root     *Node
 	HashFunc hash.Hash
 	Leaves   []*Node
 }
 
-// NewMerkleTree creates a new Merkle tree from the given values and hash function.
-func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
+// NewTree creates a new Merkle tree from the given values and hash function.
+func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 	if len(values) == 0 {
 		return nil, ErrNoLeaves
 	}
 
 	// Convert leaves into Nodes
-	var nodes []*Node
+	nodes := make([]*Node, 0, len(values))
 	for _, val := range values {
 		hashFunc.Write(val)
 		hashedValue := hashFunc.Sum(nil)
@@ -50,7 +50,7 @@ func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 		hashFunc.Reset()
 	}
 
-	tree := &MerkleTree{
+	tree := &Tree{
 		HashFunc: hashFunc,
 	}
 	tree.Root = buildTree(nodes, hashFunc)
@@ -92,7 +92,7 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 
 // AddLeaf adds a new lead to the Merkle tree and recalculates
 // the tree.
-func (m *MerkleTree) AddLeaf(value []byte) {
+func (m *Tree) AddLeaf(value []byte) {
 	m.HashFunc.Write(value)
 	leaf := NewNode(m.HashFunc.Sum(nil), value)
 	m.HashFunc.Reset()
@@ -103,7 +103,7 @@ func (m *MerkleTree) AddLeaf(value []byte) {
 
 // UpdateLeaf updates the value of the leaf at the given index
 // and recalculates the tree.
-func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {
+func (m *Tree) UpdateLeaf(index int, newVal []byte) error {
 	if index < 0 || index >= len(m.Leaves) {
 		return ErrIndexOutOfBounds
 	}
@@ -120,7 +120,7 @@ func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {
 
 // updateParentHashes propagates changes upwards to the root
 // after a leaf has been updated.
-func (m *MerkleTree) updateParentHashes(leaf *Node) {
+func (m *Tree) updateParentHashes(leaf *Node) {
 	current := leaf
 	parent := findParent(m.Root, current)
 	for parent != nil {
@@ -141,7 +141,7 @@ func (m *MerkleTree) updateParentHashes(leaf *Node) {
 
 // RemoveLeaf removes a leaf at a given index
 // and recalculates the tree.
-func (m *MerkleTree) RemoveLeaf(index int) error {
+func (m *Tree) RemoveLeaf(index int) error {
 	if index < 0 || index >= len(m.Leaves) {
 		return ErrIndexOutOfBounds
 	}
@@ -159,12 +159,12 @@ type Proof struct {
 }
 
 // GenerateProof generates an inclucion proof for a given value.
-func (m *MerkleTree) GenerateProof(value []byte) (*Proof, error) {
+func (m *Tree) GenerateProof(value []byte) (*Proof, error) {
 	return m.traverseForProof(m.Root, value, 0)
 }
 
 // traverseForProof dynamically traverses the tree to find the leaf and construct the proof
-func (m *MerkleTree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
+func (m *Tree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
 	if node == nil {
 		return nil, ErrNoVal
 	}
@@ -181,7 +181,7 @@ func (m *MerkleTree) traverseForProof(node *Node, value []byte, index int) (*Pro
 }
 
 // buildproof constructs the proof of inclucion from the leaf to the root.
-func (m *MerkleTree) buildProof(node *Node, index int) *Proof {
+func (m *Tree) buildProof(node *Node, index int) *Proof {
 	var hashes [][]byte
 	current := node
 
@@ -232,7 +232,7 @@ func findParent(root, node *Node) *Node {
 }
 
 // VerifyProof returns true if the proof is verified.
-func (m *MerkleTree) VerifyProof(proof *Proof, value []byte) bool {
+func (m *Tree) VerifyProof(proof *Proof, value []byte) bool {
 	// Start by hashing the leaf value
 	m.HashFunc.Write(value)
 	currentHash := m.HashFunc.Sum(nil)
@@ -266,7 +266,7 @@ func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Has
 	return hash
 }
 
-func (m *MerkleTree) PrintTree() {
+func (m *Tree) PrintTree() {
 	if m.Root == nil {
 		fmt.Println("Empty tree")
 	} else {
@@ -291,7 +291,7 @@ func (n *Node) StringifyTree(prefix string, isLeft bool) string {
 			result.WriteString(fmt.Sprintf("%s└── %s\n", prefix, hex.EncodeToString(n.Hash)))
 		}
 	} else {
-		result.WriteString(fmt.Sprintf("%s\n", hex.EncodeToString(n.Hash)))
+		result.WriteString(hex.EncodeToString(n.Hash) + "\n")
 	}
 
 	// Recursively stringify left and right subtrees

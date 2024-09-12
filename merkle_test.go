@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewMerkleTree(t *testing.T) {
+func TestNewTree(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -46,7 +47,7 @@ func TestNewMerkleTree(t *testing.T) {
 			t.Parallel()
 
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
+			tree, err := NewTree(tc.values, hashFunc)
 
 			if tc.err != nil {
 				assert.Error(t, err)
@@ -97,8 +98,8 @@ func TestAddLeaf(t *testing.T) {
 			t.Parallel()
 
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.initial, hashFunc)
-			assert.NoError(t, err)
+			tree, err := NewTree(tc.initial, hashFunc)
+			require.NoError(t, err)
 
 			tree.AddLeaf(tc.newValue)
 
@@ -142,8 +143,8 @@ func TestUpdateLeaf(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
-			assert.NoError(t, err)
+			tree, err := NewTree(tc.values, hashFunc)
+			require.NoError(t, err)
 
 			err = tree.UpdateLeaf(tc.index, tc.newValue)
 			if tc.err != nil {
@@ -196,8 +197,8 @@ func TestRemoveLeaf(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.initial, hashFunc)
-			assert.NoError(t, err)
+			tree, err := NewTree(tc.initial, hashFunc)
+			require.NoError(t, err)
 
 			var oldVal *Node
 			if !errors.Is(tc.err, ErrIndexOutOfBounds) {
@@ -206,7 +207,7 @@ func TestRemoveLeaf(t *testing.T) {
 
 			err = tree.RemoveLeaf(tc.removeIdx)
 			if tc.err != nil {
-				assert.Error(t, tc.err, err, "Expected error")
+				assert.ErrorIs(t, tc.err, err, "Expected error")
 			} else {
 				assert.NoError(t, err, "No error expected for valid removal")
 				if tc.expLeafLen > 0 && tc.removeIdx < len(tree.Leaves)-1 {
@@ -276,12 +277,12 @@ func TestProofOfInclusion(t *testing.T) {
 			t.Parallel()
 
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
-			assert.NoError(t, err)
+			tree, err := NewTree(tc.values, hashFunc)
+			require.NoError(t, err)
 
 			proof, err := tree.GenerateProof(tc.proofValue)
 			if tc.shouldPass {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// Verify the proof
 				isValid := tree.VerifyProof(proof, tc.proofValue)
@@ -399,8 +400,8 @@ func TestStringifyTree(t *testing.T) {
 			t.Parallel()
 
 			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
-			assert.NoError(t, err)
+			tree, err := NewTree(tc.values, hashFunc)
+			require.NoError(t, err)
 
 			treeStr := tree.Root.StringifyTree("", false)
 			assert.Equal(t, tc.exp, treeStr)
@@ -408,7 +409,7 @@ func TestStringifyTree(t *testing.T) {
 	}
 }
 
-func BenchmarkNewMerkleTree(b *testing.B) {
+func BenchmarkNewTree(b *testing.B) {
 	tests := []struct {
 		name string
 		size int
@@ -426,7 +427,7 @@ func BenchmarkNewMerkleTree(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				hashFunc := sha256.New()
-				_, err := NewMerkleTree(data, hashFunc)
+				_, err := NewTree(data, hashFunc)
 				if err != nil {
 					b.Errorf("Error creating Merkle tree: %v", err)
 				}
@@ -450,7 +451,7 @@ func BenchmarkAddLeaf(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
 			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			tree, _ := NewTree(data, hashFunc)
 
 			newLeaf := []byte("newLeaf")
 			b.ResetTimer()
@@ -477,7 +478,7 @@ func BenchmarkUpdateLeaf(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
 			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			tree, _ := NewTree(data, hashFunc)
 
 			newValue := []byte("updatedLeaf")
 			b.ResetTimer()
@@ -504,7 +505,7 @@ func BenchmarkRemoveLeaf(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
 			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			tree, _ := NewTree(data, hashFunc)
 
 			b.ResetTimer()
 
