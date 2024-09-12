@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"slices"
 	"strings"
 )
 
@@ -133,6 +134,18 @@ func (m *MerkleTree) updateParentHashes(leaf *Node) {
 		current = parent
 		parent = findParent(m.Root, current)
 	}
+}
+
+// RemoveLeaf removes a leaf at a given index
+// and recalculates the tree.
+func (m *MerkleTree) RemoveLeaf(index int) error {
+	if index < 0 || index >= len(m.Leaves) {
+		return ErrIndexOutOfBounds
+	}
+
+	m.Leaves = slices.Delete(m.Leaves, index, index+1)
+	m.Root = buildTree(m.Leaves, m.HashFunc)
+	return nil
 }
 
 // Proof represents the hash chain from a leaf to the root

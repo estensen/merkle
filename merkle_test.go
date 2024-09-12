@@ -144,6 +144,56 @@ func TestUpdateLeaf(t *testing.T) {
 	}
 }
 
+func TestRemoveLeaf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    [][]byte
+		removeIdx  int
+		expLeafLen int
+		expError   bool
+	}{
+		{
+			name:       "Remove first leaf",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			removeIdx:  0,
+			expLeafLen: 1,
+			expError:   false,
+		},
+		{
+			name:       "Remove second leaf",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			removeIdx:  1,
+			expLeafLen: 1,
+			expError:   false,
+		},
+		{
+			name:       "Remove invalid index",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			removeIdx:  2,
+			expLeafLen: 2,
+			expError:   true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hashFunc := sha256.New()
+			tree, err := NewMerkleTree(tc.initial, hashFunc)
+			assert.NoError(t, err)
+
+			err = tree.RemoveLeaf(tc.removeIdx)
+			if tc.expError {
+				assert.Error(t, err, "Expected error for invalid index")
+			} else {
+				assert.NoError(t, err, "No error expected for valid remove")
+				assert.Len(t, tree.Leaves, tc.expLeafLen, "Leaf count should match expected count after removal")
+			}
+		})
+	}
+}
+
 func TestProofOfInclusion(t *testing.T) {
 	t.Parallel()
 
