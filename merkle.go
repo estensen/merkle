@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	ErrNoLeaves = errors.New("cannot create a tree with no leaves")
-	ErrNoVal    = errors.New("value not found in the tree")
+	ErrNoLeaves         = errors.New("cannot create a tree with no leaves")
+	ErrNoVal            = errors.New("value not found in the tree")
+	ErrIndexOutOfBounds = fmt.Errorf("index out of bounds")
 )
 
 // Node represents a node in the Merkle tree
@@ -29,6 +30,7 @@ func NewNode(hash, val []byte) *Node {
 type MerkleTree struct {
 	Root     *Node
 	HashFunc hash.Hash
+	Leaves   []*Node
 }
 
 // NewMerkleTree creates a new Merkle tree from the given values and hash function.
@@ -47,12 +49,13 @@ func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 		hashFunc.Reset()
 	}
 
-	root := buildTree(nodes, hashFunc)
-
-	return &MerkleTree{
-		Root:     root,
+	tree := &MerkleTree{
 		HashFunc: hashFunc,
-	}, nil
+	}
+	tree.Root = buildTree(nodes, hashFunc)
+	tree.Leaves = nodes
+
+	return tree, nil
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
@@ -81,6 +84,44 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 	}
 
 	return buildTree(parents, hashFunc)
+}
+
+// UpdateLeaf updates the value of the leaf at the given index
+// and recalculates the tree.
+func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {
+	if index < 0 || index >= len(m.Leaves) {
+		return ErrIndexOutOfBounds
+	}
+
+	leaf := m.Leaves[index]
+	m.HashFunc.Write(newVal)
+	leaf.Hash = m.HashFunc.Sum(nil)
+	m.HashFunc.Reset()
+	leaf.Value = newVal
+
+	m.updateParentHashes(leaf)
+	return nil
+}
+
+// updateParentHashes propagates changes upwards to the root
+// after a leaf has been updated.
+func (m *MerkleTree) updateParentHashes(leaf *Node) {
+	current := leaf
+	parent := findParent(m.Root, current)
+	for parent != nil {
+		if parent.Left != nil {
+			m.HashFunc.Write(parent.Left.Hash)
+		}
+		if parent.Right != nil {
+			m.HashFunc.Write(parent.Right.Hash)
+		}
+		parent.Hash = m.HashFunc.Sum(nil)
+		m.HashFunc.Reset()
+
+		// Move up the tree
+		current = parent
+		parent = findParent(m.Root, current)
+	}
 }
 
 // Proof represents the hash chain from a leaf to the root

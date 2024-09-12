@@ -55,6 +55,56 @@ func TestNewMerkleTree(t *testing.T) {
 	}
 }
 
+func TestMerkleTreeUpdate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		values   [][]byte
+		index    int
+		newValue []byte
+		expError bool
+	}{
+		{
+			name:     "Update first leaf",
+			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			index:    0,
+			newValue: []byte("updatedLeaf1"),
+			expError: false,
+		},
+		{
+			name:     "Update second leaf",
+			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			index:    1,
+			newValue: []byte("updatedLeaf2"),
+			expError: false,
+		},
+		{
+			name:     "Update invalid index",
+			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			index:    3,
+			newValue: []byte("invalidLeaf"),
+			expError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			hashFunc := sha256.New()
+			tree, err := NewMerkleTree(tc.values, hashFunc)
+			assert.NoError(t, err)
+
+			err = tree.UpdateLeaf(tc.index, tc.newValue)
+			if tc.expError {
+				assert.Error(t, err, "Expected error for invalid index")
+			} else {
+				assert.NoError(t, err, "No error expected for valid update")
+				assert.NotNil(t, tree.Root, "Tree root should not be nil")
+			}
+		})
+	}
+}
+
 func TestProofOfInclusion(t *testing.T) {
 	t.Parallel()
 
