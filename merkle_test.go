@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -405,4 +406,117 @@ func TestStringifyTree(t *testing.T) {
 			assert.Equal(t, tc.exp, treeStr)
 		})
 	}
+}
+
+func BenchmarkNewMerkleTree(b *testing.B) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{name: "1,000 leaves", size: 1000},
+		{name: "10,000 leaves", size: 10_000},
+		{name: "100,000 leaves", size: 100_000},
+		{name: "1,000,000 leaves", size: 1_000_000},
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				hashFunc := sha256.New()
+				data := generateDummyData(tc.size)
+				_, err := NewMerkleTree(data, hashFunc)
+				if err != nil {
+					b.Errorf("Error creating Merkle tree: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAddLeaf(b *testing.B) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{name: "1,000 leaves", size: 1000},
+		{name: "10,000 leaves", size: 10_000},
+		{name: "100,000 leaves", size: 100_000},
+		{name: "1,000,000 leaves", size: 1_000_000},
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name, func(b *testing.B) {
+			data := generateDummyData(tc.size)
+			hashFunc := sha256.New()
+			tree, _ := NewMerkleTree(data, hashFunc)
+
+			newLeaf := []byte("newLeaf")
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				tree.AddLeaf(newLeaf)
+			}
+		})
+	}
+}
+
+func BenchmarkUpdateLeaf(b *testing.B) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{name: "1,000 leaves", size: 1000},
+		{name: "10,000 leaves", size: 10_000},
+		{name: "100,000 leaves", size: 100_000},
+		{name: "1,000,000 leaves", size: 1_000_000},
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name, func(b *testing.B) {
+			data := generateDummyData(tc.size)
+			hashFunc := sha256.New()
+			tree, _ := NewMerkleTree(data, hashFunc)
+
+			newValue := []byte("updatedLeaf")
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_ = tree.UpdateLeaf(tc.size/2, newValue)
+			}
+		})
+	}
+}
+
+func BenchmarkRemoveLeaf(b *testing.B) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{name: "1,000 leaves", size: 1000},
+		{name: "10,000 leaves", size: 10_000},
+		{name: "100,000 leaves", size: 100_000},
+		{name: "1,000,000 leaves", size: 1_000_000},
+	}
+
+	for _, tc := range tests {
+		b.Run(tc.name, func(b *testing.B) {
+			data := generateDummyData(tc.size)
+			hashFunc := sha256.New()
+			tree, _ := NewMerkleTree(data, hashFunc)
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				_ = tree.RemoveLeaf(tc.size / 2)
+			}
+		})
+	}
+}
+
+func generateDummyData(size int) [][]byte {
+	var data [][]byte
+	for i := 0; i < size; i++ {
+		data = append(data, []byte("leaf"+strconv.Itoa(i)))
+	}
+	return data
 }
