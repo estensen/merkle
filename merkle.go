@@ -171,26 +171,31 @@ func (m *MerkleTree) VerifyProof(proof *Proof, value []byte) bool {
 	m.HashFunc.Reset()
 
 	for _, siblingHash := range proof.Hashes {
-		// Combine currentHash and siblingHash based on the index
-		// The index determines if the current node is on the left or right
-		if proof.Index%2 == 0 {
-			// If the index is even, the current node is on the left
-			m.HashFunc.Write(currentHash)
-			m.HashFunc.Write(siblingHash)
-		} else {
-			// If the index is odd, the current node is on the right
-			m.HashFunc.Write(siblingHash)
-			m.HashFunc.Write(currentHash)
-		}
-		currentHash = m.HashFunc.Sum(nil)
-		m.HashFunc.Reset()
-
+		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashFunc)
 		// Move up to the next level, adjust the index accordingly
-		proof.Index = proof.Index / 2
+		proof.Index /= 2
 	}
 
 	// Compare the final calculated root hash with the actual root hash
 	return string(currentHash) == string(m.Root.Hash)
+}
+
+// combineHashes combines the current and sibling hashes based on the index.
+func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Hash) []byte {
+	// Combine currentHash and siblingHash based on the index
+	// The index determines if the current node is on the left or right
+	if index%2 == 0 {
+		// If the index is even, the current node is on the left
+		hashFunc.Write(currentHash)
+		hashFunc.Write(siblingHash)
+	} else {
+		// If the index is odd, the current node is on the right
+		hashFunc.Write(siblingHash)
+		hashFunc.Write(currentHash)
+	}
+	hash := hashFunc.Sum(nil)
+	hashFunc.Reset()
+	return hash
 }
 
 func (m *MerkleTree) PrintTree() {

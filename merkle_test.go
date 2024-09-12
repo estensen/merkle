@@ -131,6 +131,65 @@ func TestProofOfInclusion(t *testing.T) {
 	}
 }
 
+func TestCombineHashes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		index       int
+		currentHash []byte
+		siblingHash []byte
+		expected    string
+	}{
+		{
+			name:        "Combine when current node is on the left (even index)",
+			index:       0,
+			currentHash: []byte("current"),
+			siblingHash: []byte("sibling"),
+			expected:    "3a63db9ef32330615372985fb16993c7ab38b69ef4e4de71547584da44f6195e",
+		},
+		{
+			name:        "Combine when current node is on the right (odd index)",
+			index:       1,
+			currentHash: []byte("current"),
+			siblingHash: []byte("sibling"),
+			expected:    "d37fe7cb6a7e5b8f4d519fd9f0ad977d8962b44e23b5bf7186a7cc23c38d322a",
+		},
+		{
+			name:        "Empty current hash",
+			index:       0,
+			currentHash: []byte(""),
+			siblingHash: []byte("sibling"),
+			expected:    "7d10de8554ed5ca40f9d0f0e0f4375b5b338af3fb96d33c9b2f53b5289b8f4fe",
+		},
+		{
+			name:        "Empty sibling hash",
+			index:       0,
+			currentHash: []byte("current"),
+			siblingHash: []byte(""),
+			expected:    "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191",
+		},
+		{
+			name:        "Both current and sibling hashes are empty",
+			index:       0,
+			currentHash: []byte(""),
+			siblingHash: []byte(""),
+			expected:    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hashFunc := sha256.New()
+			result := combineHashes(tc.index, tc.currentHash, tc.siblingHash, hashFunc)
+
+			assert.Equal(t, tc.expected, hex.EncodeToString(result))
+		})
+	}
+}
+
 func TestStringifyTree(t *testing.T) {
 	t.Parallel()
 
