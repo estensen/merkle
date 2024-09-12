@@ -421,9 +421,11 @@ func BenchmarkNewMerkleTree(b *testing.B) {
 
 	for _, tc := range tests {
 		b.Run(tc.name, func(b *testing.B) {
+			data := generateDummyData(tc.size)
+			b.ResetTimer()
+
 			for i := 0; i < b.N; i++ {
 				hashFunc := sha256.New()
-				data := generateDummyData(tc.size)
 				_, err := NewMerkleTree(data, hashFunc)
 				if err != nil {
 					b.Errorf("Error creating Merkle tree: %v", err)
