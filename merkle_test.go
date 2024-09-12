@@ -516,7 +516,7 @@ func BenchmarkRemoveLeaf(b *testing.B) {
 }
 
 func generateDummyData(size int) [][]byte {
-	var data [][]byte
+	data := make([][]byte, 0, size)
 	for i := 0; i < size; i++ {
 		data = append(data, []byte("leaf"+strconv.Itoa(i)))
 	}
