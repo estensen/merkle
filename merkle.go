@@ -1,6 +1,7 @@
 package merkle
 
 import (
+	"encoding/hex"
 	"errors"
 	"hash"
 )
@@ -9,9 +10,10 @@ var ErrNoLeaves = errors.New("cannot create a tree with no leaves")
 
 // MerkleTree represents a Merkle tree
 type MerkleTree struct {
-	Root     []byte
-	Leaves   [][]byte
-	HashFunc hash.Hash
+	Root       []byte
+	ChildNodes [][]byte
+	Leaves     [][]byte
+	HashFunc   hash.Hash
 }
 
 // NewMerkleTree creates a new Merkle tree from the given leaves and hash function.
@@ -35,4 +37,14 @@ func (m *MerkleTree) buildTree() []byte {
 		m.HashFunc.Write(child)
 	}
 	return m.HashFunc.Sum(nil)
+}
+
+func (m *MerkleTree) PrintTree() {
+	m.StringifyTree()
+}
+
+func (m *MerkleTree) StringifyTree() string {
+	result := m.Root
+
+	return hex.EncodeToString(result)
 }

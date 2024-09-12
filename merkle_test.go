@@ -48,3 +48,37 @@ func TestMerkleTree(t *testing.T) {
 		})
 	}
 }
+
+func TestStringifyTree(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		leaves [][]byte
+		exp    string
+	}{
+		{
+			name:   "Single leaf",
+			leaves: [][]byte{[]byte("yolo")},
+			exp:    `311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02`,
+		},
+		{
+			name:   "Two leaves",
+			leaves: [][]byte{[]byte("yolo"), []byte("diftp")},
+			exp:    `1729a9d993921f8da58640c883408d0a23d811be44c6c3499757db7eed9fc76f`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hashFunc := sha256.New()
+			tree, err := NewMerkleTree(tc.leaves, hashFunc)
+			assert.NoError(t, err)
+
+			treeStr := tree.StringifyTree()
+			assert.Equal(t, tc.exp, treeStr)
+		})
+	}
+}
