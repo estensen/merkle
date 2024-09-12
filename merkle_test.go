@@ -60,12 +60,14 @@ func TestStringifyTree(t *testing.T) {
 		{
 			name:   "Single leaf",
 			leaves: [][]byte{[]byte("yolo")},
-			exp:    `311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02`,
+			exp: `Root: 311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02
+Leaves: yolo`,
 		},
 		{
 			name:   "Two leaves",
 			leaves: [][]byte{[]byte("yolo"), []byte("diftp")},
-			exp:    `1729a9d993921f8da58640c883408d0a23d811be44c6c3499757db7eed9fc76f`,
+			exp: `Root: 1729a9d993921f8da58640c883408d0a23d811be44c6c3499757db7eed9fc76f
+Leaves: yolodiftp`,
 		},
 	}
 

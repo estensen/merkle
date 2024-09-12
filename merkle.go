@@ -3,6 +3,7 @@ package merkle
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash"
 )
 
@@ -35,16 +36,21 @@ func NewMerkleTree(leaves [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 func (m *MerkleTree) buildTree() []byte {
 	for _, child := range m.Leaves {
 		m.HashFunc.Write(child)
+		m.ChildNodes = append(m.ChildNodes, child)
 	}
 	return m.HashFunc.Sum(nil)
 }
 
 func (m *MerkleTree) PrintTree() {
-	m.StringifyTree()
+	fmt.Print(m.StringifyTree())
 }
 
 func (m *MerkleTree) StringifyTree() string {
-	result := m.Root
+	result := fmt.Sprintf("Root: %s\n", hex.EncodeToString(m.Root))
+	result += "Leaves: "
+	for _, child := range m.ChildNodes {
+		result += string(child)
+	}
 
-	return hex.EncodeToString(result)
+	return result
 }
