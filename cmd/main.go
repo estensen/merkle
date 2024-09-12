@@ -24,4 +24,16 @@ func main() {
 	}
 
 	tree.PrintTree()
+
+	proof, err := tree.GenerateProof([]byte("leaf1"))
+	if err != nil {
+		panic(err)
+	}
+
+	isValid := tree.VerifyProof(proof, []byte("leaf1"))
+	if !isValid {
+		panic("failed to verify proof for leaf1")
+	} else {
+		fmt.Println("leaf1 is in the tree")
+	}
 }

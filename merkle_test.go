@@ -55,6 +55,82 @@ func TestNewMerkleTree(t *testing.T) {
 	}
 }
 
+func TestProofOfInclusion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		values     [][]byte
+		proofValue []byte
+		shouldPass bool
+	}{
+		{
+			name:       "Single leaf, valid proof",
+			values:     [][]byte{[]byte("yolo")},
+			proofValue: []byte("yolo"),
+			shouldPass: true,
+		},
+		{
+			name:       "Two leaves, valid proof for first leaf",
+			values:     [][]byte{[]byte("yolo"), []byte("diftp")},
+			proofValue: []byte("yolo"),
+			shouldPass: true,
+		},
+		{
+			name:       "Two leaves, valid proof for second leaf",
+			values:     [][]byte{[]byte("yolo"), []byte("diftp")},
+			proofValue: []byte("diftp"),
+			shouldPass: true,
+		},
+		{
+			name:       "Three leaves, valid proof for middle leaf",
+			values:     [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
+			proofValue: []byte("diftp"),
+			shouldPass: true,
+		},
+		{
+			name:       "Three leaves, invalid proof for non-existent leaf",
+			values:     [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
+			proofValue: []byte("nonexistent"),
+			shouldPass: false,
+		},
+		{
+			name:       "Five leaves, valid proof for third leaf",
+			values:     [][]byte{[]byte("a"), []byte("b"), []byte("c"), []byte("d"), []byte("e")},
+			proofValue: []byte("c"),
+			shouldPass: true,
+		},
+		{
+			name:       "Five leaves, invalid proof for non-existent leaf",
+			values:     [][]byte{[]byte("a"), []byte("b"), []byte("c"), []byte("d"), []byte("e")},
+			proofValue: []byte("f"),
+			shouldPass: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hashFunc := sha256.New()
+			tree, err := NewMerkleTree(tc.values, hashFunc)
+			assert.NoError(t, err)
+
+			proof, err := tree.GenerateProof(tc.proofValue)
+			if tc.shouldPass {
+				assert.NoError(t, err)
+
+				// Verify the proof
+				isValid := tree.VerifyProof(proof, tc.proofValue)
+				assert.True(t, isValid, "Proof should be valid")
+			} else {
+				// For cases where the proof should fail, ensure we get an error
+				assert.Error(t, err, "Proof generation should fail for invalid values")
+			}
+		})
+	}
+}
+
 func TestStringifyTree(t *testing.T) {
 	t.Parallel()
 

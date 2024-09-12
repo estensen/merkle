@@ -8,7 +8,10 @@ import (
 	"strings"
 )
 
-var ErrNoLeaves = errors.New("cannot create a tree with no leaves")
+var (
+	ErrNoLeaves = errors.New("cannot create a tree with no leaves")
+	ErrNoVal    = errors.New("value not found in the tree")
+)
 
 // Node represents a node in the Merkle tree
 type Node struct {
@@ -25,7 +28,6 @@ func NewNode(hash, val []byte) *Node {
 // MerkleTree represents a Merkle tree
 type MerkleTree struct {
 	Root     *Node
-	Leaves   []*Node
 	HashFunc hash.Hash
 }
 
@@ -35,22 +37,22 @@ func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 		return nil, ErrNoLeaves
 	}
 
-	tree := &MerkleTree{
-		HashFunc: hashFunc,
-	}
-
 	// Convert leaves into Nodes
+	var nodes []*Node
 	for _, val := range values {
 		hashFunc.Write(val)
 		hashedValue := hashFunc.Sum(nil)
 		node := NewNode(hashedValue, val)
-		tree.Leaves = append(tree.Leaves, node)
+		nodes = append(nodes, node)
 		hashFunc.Reset()
 	}
 
-	tree.Root = buildTree(tree.Leaves, hashFunc)
+	root := buildTree(nodes, hashFunc)
 
-	return tree, nil
+	return &MerkleTree{
+		Root:     root,
+		HashFunc: hashFunc,
+	}, nil
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
@@ -79,6 +81,116 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 	}
 
 	return buildTree(parents, hashFunc)
+}
+
+// Proof represents the hash chain from a leaf to the root
+// to prove that a leaf is part of the tree.
+type Proof struct {
+	Hashes [][]byte
+	Index  int
+}
+
+// GenerateProof generates an inclucion proof for a given value.
+func (m *MerkleTree) GenerateProof(value []byte) (*Proof, error) {
+	return m.traverseForProof(m.Root, value, 0)
+}
+
+// traverseForProof dynamically traverses the tree to find the leaf and construct the proof
+func (m *MerkleTree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
+	if node == nil {
+		return nil, ErrNoVal
+	}
+
+	if string(node.Value) == string(value) {
+		return m.buildProof(node, index), nil
+	}
+
+	// Recursively search the left and right children
+	if proof, err := m.traverseForProof(node.Left, value, index*2); err == nil {
+		return proof, nil
+	}
+	return m.traverseForProof(node.Right, value, index*2+1)
+}
+
+// buildproof constructs the proof of inclucion from the leaf to the root.
+func (m *MerkleTree) buildProof(node *Node, index int) *Proof {
+	var hashes [][]byte
+	current := node
+
+	for current != nil {
+		siblingHash := []byte{}
+		parent := findParent(m.Root, current)
+
+		// Get sibling hash
+		if parent != nil {
+			if parent.Left == current {
+				if parent.Right != nil {
+					siblingHash = parent.Right.Hash
+				}
+			} else {
+				if parent.Left != nil {
+					siblingHash = parent.Left.Hash
+				}
+			}
+			hashes = append(hashes, siblingHash)
+		}
+
+		// Move up the tree
+		current = parent
+	}
+
+	return &Proof{
+		Hashes: hashes,
+		Index:  index,
+	}
+}
+
+// findParent traverses the tree to find the parent of a given node.
+func findParent(root, node *Node) *Node {
+	if root == nil || root == node {
+		return nil
+	}
+
+	// Check if either left or right child is the target node
+	if root.Left == node || root.Right == node {
+		return root
+	}
+
+	// Recursively check the left and right children
+	if parent := findParent(root.Left, node); parent != nil {
+		return parent
+	}
+	return findParent(root.Right, node)
+}
+
+// VerifyProof returns true if the proof is verified.
+func (m *MerkleTree) VerifyProof(proof *Proof, value []byte) bool {
+	// Start by hashing the leaf value
+	m.HashFunc.Write(value)
+	currentHash := m.HashFunc.Sum(nil)
+	m.HashFunc.Reset()
+
+	for _, siblingHash := range proof.Hashes {
+		// Combine currentHash and siblingHash based on the index
+		// The index determines if the current node is on the left or right
+		if proof.Index%2 == 0 {
+			// If the index is even, the current node is on the left
+			m.HashFunc.Write(currentHash)
+			m.HashFunc.Write(siblingHash)
+		} else {
+			// If the index is odd, the current node is on the right
+			m.HashFunc.Write(siblingHash)
+			m.HashFunc.Write(currentHash)
+		}
+		currentHash = m.HashFunc.Sum(nil)
+		m.HashFunc.Reset()
+
+		// Move up to the next level, adjust the index accordingly
+		proof.Index = proof.Index / 2
+	}
+
+	// Compare the final calculated root hash with the actual root hash
+	return string(currentHash) == string(m.Root.Hash)
 }
 
 func (m *MerkleTree) PrintTree() {
