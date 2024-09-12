@@ -12,6 +12,7 @@ func main() {
 	leaves := [][]byte{
 		[]byte("leaf1"),
 		[]byte("leaf2"),
+		[]byte("leaf3"),
 	}
 
 	// Initialize a Merkle tree with SHA-256
