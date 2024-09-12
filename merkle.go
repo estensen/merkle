@@ -1,6 +1,7 @@
 package merkle
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -168,7 +169,7 @@ func (m *Tree) traverseForProof(node *Node, value []byte, index int) (*Proof, er
 		return nil, ErrNoVal
 	}
 
-	if string(node.Value) == string(value) {
+	if bytes.Equal(node.Value, value) {
 		return m.buildProof(node, index), nil
 	}
 
@@ -244,7 +245,7 @@ func (m *Tree) VerifyProof(proof *Proof, value []byte) bool {
 	}
 
 	// Compare the final calculated root hash with the actual root hash
-	return string(currentHash) == string(m.Root.Hash)
+	return bytes.Equal(currentHash, m.Root.Hash)
 }
 
 // combineHashes combines the current and sibling hashes based on the index.
