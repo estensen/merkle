@@ -86,6 +86,17 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 	return buildTree(parents, hashFunc)
 }
 
+// AddLeaf adds a new lead to the Merkle tree and recalculates
+// the tree.
+func (m *MerkleTree) AddLeaf(value []byte) {
+	m.HashFunc.Write(value)
+	leaf := NewNode(m.HashFunc.Sum(nil), value)
+	m.HashFunc.Reset()
+
+	m.Leaves = append(m.Leaves, leaf)
+	m.Root = buildTree(m.Leaves, m.HashFunc)
+}
+
 // UpdateLeaf updates the value of the leaf at the given index
 // and recalculates the tree.
 func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {

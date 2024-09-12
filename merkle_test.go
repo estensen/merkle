@@ -55,7 +55,46 @@ func TestNewMerkleTree(t *testing.T) {
 	}
 }
 
-func TestMerkleTreeUpdate(t *testing.T) {
+func TestAddLeaf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		initial    [][]byte
+		newValue   []byte
+		expLeafLen int
+	}{
+		{
+			name:       "Add to tree with one leaf",
+			initial:    [][]byte{[]byte("leaf1")},
+			newValue:   []byte("leaf2"),
+			expLeafLen: 2,
+		},
+		{
+			name:       "Add to tree with two leaves",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			newValue:   []byte("leaf3"),
+			expLeafLen: 3,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hashFunc := sha256.New()
+			tree, err := NewMerkleTree(tc.initial, hashFunc)
+			assert.NoError(t, err)
+
+			tree.AddLeaf(tc.newValue)
+
+			assert.Len(t, tree.Leaves, tc.expLeafLen, "Leaf count should match expected count after addition")
+			assert.NotNil(t, tree.Root, "Tree root should not be nil after adding a leaf")
+		})
+	}
+}
+
+func TestUpdateLeaf(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
