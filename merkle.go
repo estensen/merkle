@@ -17,10 +17,10 @@ var (
 
 // Node represents a node in the Merkle tree
 type Node struct {
-	Hash  []byte
-	Value []byte
 	Left  *Node
 	Right *Node
+	Hash  []byte
+	Value []byte
 }
 
 func NewNode(hash, val []byte) *Node {
