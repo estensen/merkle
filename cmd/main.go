@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"sync"
 
 	"github.com/estensen/merkle"
 )
@@ -16,8 +17,12 @@ func main() {
 	}
 
 	// Initialize a Merkle tree with SHA-256
-	hashFunc := sha256.New()
-	tree, err := merkle.NewMerkleTree(leaves, hashFunc)
+	hashPool := &sync.Pool{
+		New: func() interface{} {
+			return sha256.New()
+		},
+	}
+	tree, err := merkle.NewMerkleTree(leaves, hashPool)
 	if err != nil {
 		fmt.Printf("Failed to create Merkle tree: %v\n", err)
 		return

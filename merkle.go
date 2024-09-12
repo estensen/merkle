@@ -7,6 +7,7 @@ import (
 	"hash"
 	"slices"
 	"strings"
+	"sync"
 )
 
 var (
@@ -30,36 +31,39 @@ func NewNode(hash, val []byte) *Node {
 // MerkleTree represents a Merkle tree
 type MerkleTree struct {
 	Root     *Node
-	HashFunc hash.Hash
+	HashPool *sync.Pool
 	Leaves   []*Node
 }
 
 // NewMerkleTree creates a new Merkle tree from the given values and hash function.
-func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
+func NewMerkleTree(values [][]byte, hashPool *sync.Pool) (*MerkleTree, error) {
 	if len(values) == 0 {
 		return nil, ErrNoLeaves
 	}
 
+	hasher := hashPool.Get().(hash.Hash)
+	defer hashPool.Put(hasher)
+
 	// Convert leaves into Nodes
 	var nodes []*Node
 	for _, val := range values {
-		hashFunc.Write(val)
-		hashedValue := hashFunc.Sum(nil)
+		hasher.Write(val)
+		hashedValue := hasher.Sum(nil)
 		node := NewNode(hashedValue, val)
 		nodes = append(nodes, node)
-		hashFunc.Reset()
+		hasher.Reset()
 	}
 
 	tree := &MerkleTree{
-		HashFunc: hashFunc,
+		HashPool: hashPool,
 	}
-	tree.Root = buildTree(nodes, hashFunc)
+	tree.Root = buildTree(nodes, hashPool)
 	tree.Leaves = nodes
 
 	return tree, nil
 }
 
-func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
+func buildTree(nodes []*Node, hashPool *sync.Pool) *Node {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -67,7 +71,12 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 		return nodes[0]
 	}
 
-	var parents []*Node
+	numParentNodes := (len(nodes) + 1) / 2
+	parents := make([]*Node, numParentNodes)
+
+	var wg sync.WaitGroup
+	wg.Add(numParentNodes)
+
 	for i := 0; i < len(nodes); i += 2 {
 		left := nodes[i]
 		var right *Node
@@ -75,30 +84,45 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 			right = nodes[i+1]
 		}
 
-		// Hash children to crate parent hash
-		hashFunc.Write(left.Hash)
-		if right != nil {
-			hashFunc.Write(right.Hash)
-		}
-		parentHash := hashFunc.Sum(nil)
-		hashFunc.Reset()
+		go func(i int, left, right *Node) {
+			defer wg.Done()
 
-		parent := &Node{Hash: parentHash, Left: left, Right: right}
-		parents = append(parents, parent)
+			hasher := hashPool.Get().(hash.Hash)
+			defer func() {
+				hasher.Reset()
+				hashPool.Put(hasher)
+			}()
+
+			// Hash children to create parent hash
+			hasher.Write(left.Hash)
+			if right != nil {
+				hasher.Write(right.Hash)
+			}
+			parentHash := hasher.Sum(nil)
+
+			parents[i/2] = &Node{Hash: parentHash, Left: left, Right: right}
+		}(i, left, right)
 	}
 
-	return buildTree(parents, hashFunc)
+	wg.Wait()
+
+	return buildTree(parents, hashPool)
 }
 
 // AddLeaf adds a new lead to the Merkle tree and recalculates
 // the tree.
 func (m *MerkleTree) AddLeaf(value []byte) {
-	m.HashFunc.Write(value)
-	leaf := NewNode(m.HashFunc.Sum(nil), value)
-	m.HashFunc.Reset()
+	hasher := m.HashPool.Get().(hash.Hash)
+	defer func() {
+		hasher.Reset()
+		m.HashPool.Put(hasher)
+	}()
+
+	hasher.Write(value)
+	leaf := NewNode(hasher.Sum(nil), value)
 
 	m.Leaves = append(m.Leaves, leaf)
-	m.Root = buildTree(m.Leaves, m.HashFunc)
+	m.Root = buildTree(m.Leaves, m.HashPool)
 }
 
 // UpdateLeaf updates the value of the leaf at the given index
@@ -108,10 +132,11 @@ func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {
 		return ErrIndexOutOfBounds
 	}
 
+	hasher := m.HashPool.Get().(hash.Hash)
 	leaf := m.Leaves[index]
-	m.HashFunc.Write(newVal)
-	leaf.Hash = m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	hasher.Write(newVal)
+	leaf.Hash = hasher.Sum(nil)
+	hasher.Reset()
 	leaf.Value = newVal
 
 	m.updateParentHashes(leaf)
@@ -123,15 +148,17 @@ func (m *MerkleTree) UpdateLeaf(index int, newVal []byte) error {
 func (m *MerkleTree) updateParentHashes(leaf *Node) {
 	current := leaf
 	parent := findParent(m.Root, current)
+
+	hasher := m.HashPool.Get().(hash.Hash)
 	for parent != nil {
 		if parent.Left != nil {
-			m.HashFunc.Write(parent.Left.Hash)
+			hasher.Write(parent.Left.Hash)
 		}
 		if parent.Right != nil {
-			m.HashFunc.Write(parent.Right.Hash)
+			hasher.Write(parent.Right.Hash)
 		}
-		parent.Hash = m.HashFunc.Sum(nil)
-		m.HashFunc.Reset()
+		parent.Hash = hasher.Sum(nil)
+		hasher.Reset()
 
 		// Move up the tree
 		current = parent
@@ -147,7 +174,7 @@ func (m *MerkleTree) RemoveLeaf(index int) error {
 	}
 
 	m.Leaves = slices.Delete(m.Leaves, index, index+1)
-	m.Root = buildTree(m.Leaves, m.HashFunc)
+	m.Root = buildTree(m.Leaves, m.HashPool)
 	return nil
 }
 
@@ -234,12 +261,13 @@ func findParent(root, node *Node) *Node {
 // VerifyProof returns true if the proof is verified.
 func (m *MerkleTree) VerifyProof(proof *Proof, value []byte) bool {
 	// Start by hashing the leaf value
-	m.HashFunc.Write(value)
-	currentHash := m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	hasher := m.HashPool.Get().(hash.Hash)
+	hasher.Write(value)
+	currentHash := hasher.Sum(nil)
+	hasher.Reset()
 
 	for _, siblingHash := range proof.Hashes {
-		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashFunc)
+		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashPool)
 		// Move up to the next level, adjust the index accordingly
 		proof.Index /= 2
 	}
@@ -249,20 +277,22 @@ func (m *MerkleTree) VerifyProof(proof *Proof, value []byte) bool {
 }
 
 // combineHashes combines the current and sibling hashes based on the index.
-func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Hash) []byte {
+func combineHashes(index int, currentHash, siblingHash []byte, hashPool *sync.Pool) []byte {
+	hasher := hashPool.Get().(hash.Hash)
+	defer hashPool.Put(hasher)
 	// Combine currentHash and siblingHash based on the index
 	// The index determines if the current node is on the left or right
 	if index%2 == 0 {
 		// If the index is even, the current node is on the left
-		hashFunc.Write(currentHash)
-		hashFunc.Write(siblingHash)
+		hasher.Write(currentHash)
+		hasher.Write(siblingHash)
 	} else {
 		// If the index is odd, the current node is on the right
-		hashFunc.Write(siblingHash)
-		hashFunc.Write(currentHash)
+		hasher.Write(siblingHash)
+		hasher.Write(currentHash)
 	}
-	hash := hashFunc.Sum(nil)
-	hashFunc.Reset()
+	hash := hasher.Sum(nil)
+	hasher.Reset()
 	return hash
 }
 

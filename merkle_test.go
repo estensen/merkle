@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,8 +46,8 @@ func TestNewMerkleTree(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.values, hashPool)
 
 			if tc.err != nil {
 				assert.Error(t, err)
@@ -96,8 +97,8 @@ func TestAddLeaf(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.initial, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.initial, hashPool)
 			assert.NoError(t, err)
 
 			tree.AddLeaf(tc.newValue)
@@ -141,8 +142,8 @@ func TestUpdateLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.values, hashPool)
 			assert.NoError(t, err)
 
 			err = tree.UpdateLeaf(tc.index, tc.newValue)
@@ -195,8 +196,8 @@ func TestRemoveLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.initial, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.initial, hashPool)
 			assert.NoError(t, err)
 
 			var oldVal *Node
@@ -275,8 +276,8 @@ func TestProofOfInclusion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.values, hashPool)
 			assert.NoError(t, err)
 
 			proof, err := tree.GenerateProof(tc.proofValue)
@@ -345,8 +346,8 @@ func TestCombineHashes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
-			result := combineHashes(tc.index, tc.currentHash, tc.siblingHash, hashFunc)
+			hashPool := newTestHashPool()
+			result := combineHashes(tc.index, tc.currentHash, tc.siblingHash, hashPool)
 
 			assert.Equal(t, tc.expected, hex.EncodeToString(result))
 		})
@@ -398,13 +399,22 @@ func TestStringifyTree(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
-			tree, err := NewMerkleTree(tc.values, hashFunc)
+			hashPool := newTestHashPool()
+			tree, err := NewMerkleTree(tc.values, hashPool)
 			assert.NoError(t, err)
 
 			treeStr := tree.Root.StringifyTree("", false)
 			assert.Equal(t, tc.exp, treeStr)
 		})
+	}
+}
+
+// Create a new hash pool for testing
+func newTestHashPool() *sync.Pool {
+	return &sync.Pool{
+		New: func() interface{} {
+			return sha256.New() // Use sha256 for testing
+		},
 	}
 }
 
@@ -425,8 +435,8 @@ func BenchmarkNewMerkleTree(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				hashFunc := sha256.New()
-				_, err := NewMerkleTree(data, hashFunc)
+				hashPool := newTestHashPool()
+				_, err := NewMerkleTree(data, hashPool)
 				if err != nil {
 					b.Errorf("Error creating Merkle tree: %v", err)
 				}
@@ -449,8 +459,8 @@ func BenchmarkAddLeaf(b *testing.B) {
 	for _, tc := range tests {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
-			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			hashPool := newTestHashPool()
+			tree, _ := NewMerkleTree(data, hashPool)
 
 			newLeaf := []byte("newLeaf")
 			b.ResetTimer()
@@ -476,8 +486,8 @@ func BenchmarkUpdateLeaf(b *testing.B) {
 	for _, tc := range tests {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
-			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			hashPool := newTestHashPool()
+			tree, _ := NewMerkleTree(data, hashPool)
 
 			newValue := []byte("updatedLeaf")
 			b.ResetTimer()
@@ -503,8 +513,8 @@ func BenchmarkRemoveLeaf(b *testing.B) {
 	for _, tc := range tests {
 		b.Run(tc.name, func(b *testing.B) {
 			data := generateDummyData(tc.size)
-			hashFunc := sha256.New()
-			tree, _ := NewMerkleTree(data, hashFunc)
+			hashPool := newTestHashPool()
+			tree, _ := NewMerkleTree(data, hashPool)
 
 			b.ResetTimer()
 
