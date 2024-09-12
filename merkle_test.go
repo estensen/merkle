@@ -3,6 +3,7 @@ package merkle
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,6 +77,18 @@ func TestAddLeaf(t *testing.T) {
 			newValue:   []byte("leaf3"),
 			expLeafLen: 3,
 		},
+		{
+			name:       "Add to tree with three leaves",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3")},
+			newValue:   []byte("leaf4"),
+			expLeafLen: 4,
+		},
+		{
+			name:       "Add to tree with four leaves",
+			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3"), []byte("leaf4")},
+			newValue:   []byte("leaf5"),
+			expLeafLen: 5,
+		},
 	}
 
 	for _, tc := range tests {
@@ -102,28 +115,26 @@ func TestUpdateLeaf(t *testing.T) {
 		values   [][]byte
 		index    int
 		newValue []byte
-		expError bool
+		err      error
 	}{
 		{
 			name:     "Update first leaf",
 			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			index:    0,
 			newValue: []byte("updatedLeaf1"),
-			expError: false,
 		},
 		{
 			name:     "Update second leaf",
 			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			index:    1,
 			newValue: []byte("updatedLeaf2"),
-			expError: false,
 		},
 		{
 			name:     "Update invalid index",
 			values:   [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			index:    3,
 			newValue: []byte("invalidLeaf"),
-			expError: true,
+			err:      ErrIndexOutOfBounds,
 		},
 	}
 
@@ -134,11 +145,11 @@ func TestUpdateLeaf(t *testing.T) {
 			assert.NoError(t, err)
 
 			err = tree.UpdateLeaf(tc.index, tc.newValue)
-			if tc.expError {
-				assert.Error(t, err, "Expected error for invalid index")
+			if tc.err != nil {
+				assert.Equal(t, tc.err, err, "Expected error")
 			} else {
 				assert.NoError(t, err, "No error expected for valid update")
-				assert.NotNil(t, tree.Root, "Tree root should not be nil")
+				assert.Equal(t, tc.newValue, tree.Leaves[tc.index].Value)
 			}
 		})
 	}
@@ -152,28 +163,32 @@ func TestRemoveLeaf(t *testing.T) {
 		initial    [][]byte
 		removeIdx  int
 		expLeafLen int
-		expError   bool
+		err        error
 	}{
 		{
 			name:       "Remove first leaf",
 			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			removeIdx:  0,
 			expLeafLen: 1,
-			expError:   false,
 		},
 		{
 			name:       "Remove second leaf",
 			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			removeIdx:  1,
 			expLeafLen: 1,
-			expError:   false,
+		},
+		{
+			name:       "Remove only leaf",
+			initial:    [][]byte{[]byte("leaf1")},
+			removeIdx:  0,
+			expLeafLen: 0,
 		},
 		{
 			name:       "Remove invalid index",
 			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
 			removeIdx:  2,
 			expLeafLen: 2,
-			expError:   true,
+			err:        ErrIndexOutOfBounds,
 		},
 	}
 
@@ -183,11 +198,19 @@ func TestRemoveLeaf(t *testing.T) {
 			tree, err := NewMerkleTree(tc.initial, hashFunc)
 			assert.NoError(t, err)
 
+			var oldVal *Node
+			if !errors.Is(tc.err, ErrIndexOutOfBounds) {
+				oldVal = tree.Leaves[tc.removeIdx]
+			}
+
 			err = tree.RemoveLeaf(tc.removeIdx)
-			if tc.expError {
-				assert.Error(t, err, "Expected error for invalid index")
+			if tc.err != nil {
+				assert.Error(t, tc.err, err, "Expected error")
 			} else {
-				assert.NoError(t, err, "No error expected for valid remove")
+				assert.NoError(t, err, "No error expected for valid removal")
+				if tc.expLeafLen > 0 && tc.removeIdx < len(tree.Leaves)-1 {
+					assert.NotEqual(t, oldVal, tree.Leaves[tc.removeIdx])
+				}
 				assert.Len(t, tree.Leaves, tc.expLeafLen, "Leaf count should match expected count after removal")
 			}
 		})

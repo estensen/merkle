@@ -60,6 +60,9 @@ func NewMerkleTree(values [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
+	if len(nodes) == 0 {
+		return nil
+	}
 	if len(nodes) == 1 {
 		return nodes[0]
 	}
