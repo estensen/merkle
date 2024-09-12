@@ -60,34 +60,25 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
-	if len(nodes) == 0 {
-		return nil
-	}
-	if len(nodes) == 1 {
-		return nodes[0]
-	}
-
-	var parents []*Node
-	for i := 0; i < len(nodes); i += 2 {
-		left := nodes[i]
-		var right *Node
-		if i+1 < len(nodes) {
-			right = nodes[i+1]
+	for len(nodes) > 1 {
+		parents := make([]*Node, 0, (len(nodes)+1)/2)
+		for i := 0; i < len(nodes); i += 2 {
+			left := nodes[i]
+			var right *Node
+			if i+1 < len(nodes) {
+				right = nodes[i+1]
+			}
+			hashFunc.Write(left.Hash)
+			if right != nil {
+				hashFunc.Write(right.Hash)
+			}
+			parentHash := hashFunc.Sum(nil)
+			hashFunc.Reset()
+			parents = append(parents, &Node{Hash: parentHash, Left: left, Right: right})
 		}
-
-		// Hash children to crate parent hash
-		hashFunc.Write(left.Hash)
-		if right != nil {
-			hashFunc.Write(right.Hash)
-		}
-		parentHash := hashFunc.Sum(nil)
-		hashFunc.Reset()
-
-		parent := &Node{Hash: parentHash, Left: left, Right: right}
-		parents = append(parents, parent)
+		nodes = parents
 	}
-
-	return buildTree(parents, hashFunc)
+	return nodes[0]
 }
 
 // AddLeaf adds a new lead to the Merkle tree and recalculates
@@ -147,6 +138,14 @@ func (m *Tree) RemoveLeaf(index int) error {
 	}
 
 	m.Leaves = slices.Delete(m.Leaves, index, index+1)
+
+	// If there are no leaves left, the tree is now empty
+	if len(m.Leaves) == 0 {
+		m.Root = nil
+		return nil
+	}
+
+	// Rebuild the tree with the remaining leaves
 	m.Root = buildTree(m.Leaves, m.HashFunc)
 	return nil
 }
