@@ -31,5 +31,5 @@ func NewMerkleTree(leaves [][]byte, hashFunc hash.Hash) (*MerkleTree, error) {
 }
 
 func (m *MerkleTree) buildTree() []byte {
-	return []byte{}
+	return m.HashFunc.Sum(m.Leaves[0])
 }
