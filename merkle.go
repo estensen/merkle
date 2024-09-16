@@ -62,21 +62,36 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
+	if len(nodes) == 0 {
+		return nil
+	}
 	for len(nodes) > 1 {
-		parents := make([]*Node, 0, (len(nodes)+1)/2)
+		parents := make([]*Node, (len(nodes)+1)/2)
 		for i := 0; i < len(nodes); i += 2 {
 			left := nodes[i]
-			var right *Node
 			if i+1 < len(nodes) {
-				right = nodes[i+1]
-			}
-			hashFunc.Write(left.Hash)
-			if right != nil {
+				right := nodes[i+1]
+
+				// Hash the left and right node hashes
+				hashFunc.Write(left.Hash)
 				hashFunc.Write(right.Hash)
+				parentHash := hashFunc.Sum(nil)
+				hashFunc.Reset()
+
+				parentNode := &Node{
+					Hash:  parentHash,
+					Left:  left,
+					Right: right,
+				}
+
+				left.Parent = parentNode
+				right.Parent = parentNode
+
+				parents[i/2] = parentNode
+			} else {
+				// If right is nil, carry the left node up without hashing
+				parents[i/2] = left
 			}
-			parentHash := hashFunc.Sum(nil)
-			hashFunc.Reset()
-			parents = append(parents, &Node{Hash: parentHash, Left: left, Right: right})
 		}
 		nodes = parents
 	}

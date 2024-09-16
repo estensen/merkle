@@ -15,10 +15,11 @@ func TestNewTree(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		values  [][]byte
-		expRoot string
-		err     error
+		name      string
+		values    [][]byte
+		expRoot   string
+		expLeaves []string
+		err       error
 	}{
 		{
 			name:   "No values should fail",
@@ -26,19 +27,29 @@ func TestNewTree(t *testing.T) {
 			err:    ErrNoLeaves,
 		},
 		{
-			name:    "One leaf should succeed",
-			values:  [][]byte{[]byte("yolo")},
-			expRoot: "311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02",
+			name:      "One leaf should succeed",
+			values:    [][]byte{[]byte("yolo")},
+			expRoot:   "311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02",
+			expLeaves: []string{"311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02"},
 		},
 		{
 			name:    "Two values should succeed",
 			values:  [][]byte{[]byte("yolo"), []byte("diftp")},
 			expRoot: "a95e7824ca69532428f3050ea7ac90b6ceb8af5b2bc51660f7bf13d64c74e76b",
+			expLeaves: []string{
+				"311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02",
+				"4541f9abff1560090c8554f6336c039c7eba3da710aa83b07452ad1161c9abcd",
+			},
 		},
 		{
 			name:    "Three values should succeed",
 			values:  [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
-			expRoot: "a86aafc816451783ed59106e681f937c23f20f8175c795600063a887dab1aca2",
+			expRoot: "c015cc9ef945a1aa2e3936249b45eeeccb80a4ab1b87aebefcd0f9844d857b84",
+			expLeaves: []string{
+				"311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02",
+				"4541f9abff1560090c8554f6336c039c7eba3da710aa83b07452ad1161c9abcd",
+				"69d65b9a363d4ca7b25cdaff49ad682c2f42fa51cc765f56b2c6a2a89d038a21",
+			},
 		},
 	}
 
@@ -52,7 +63,11 @@ func TestNewTree(t *testing.T) {
 			if tc.err != nil {
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, tc.expRoot, hex.EncodeToString(tree.Root.Hash), "Tree root should not be nil")
+				assert.Equal(t, tc.expRoot, hex.EncodeToString(tree.Root.Hash), "Tree root mismatch")
+
+				for i, leaf := range tree.Leaves {
+					assert.Equal(t, tc.expLeaves[i], hex.EncodeToString(leaf.Hash))
+				}
 			}
 		})
 	}
@@ -382,15 +397,14 @@ func TestStringifyTree(t *testing.T) {
 		{
 			name:   "Three values",
 			values: [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
-			exp: `a86aafc816451783ed59106e681f937c23f20f8175c795600063a887dab1aca2
+			exp: `c015cc9ef945a1aa2e3936249b45eeeccb80a4ab1b87aebefcd0f9844d857b84
     ├── a95e7824ca69532428f3050ea7ac90b6ceb8af5b2bc51660f7bf13d64c74e76b
     │   ├── 311fe3feed16b9cd8df0f8b1517be5cb86048707df4889ba8dc37d4d68866d02
     │       (Leaf Value: yolo)
     │   └── 4541f9abff1560090c8554f6336c039c7eba3da710aa83b07452ad1161c9abcd
     │       (Leaf Value: diftp)
-    └── 39cd2875a5deae9cd1ec33a13339a3a63f66c8138dd9cb514c0d301438d801a4
-        ├── 69d65b9a363d4ca7b25cdaff49ad682c2f42fa51cc765f56b2c6a2a89d038a21
-            (Leaf Value: ngmi)
+    └── 69d65b9a363d4ca7b25cdaff49ad682c2f42fa51cc765f56b2c6a2a89d038a21
+        (Leaf Value: ngmi)
 `,
 		},
 	}
