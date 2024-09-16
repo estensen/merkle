@@ -73,63 +73,6 @@ func TestNewTree(t *testing.T) {
 	}
 }
 
-func TestAddLeaf(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		initial    [][]byte
-		newValue   []byte
-		expRoot    string
-		expLeafLen int
-	}{
-		{
-			name:       "Add to tree with one leaf",
-			initial:    [][]byte{[]byte("yolo")},
-			newValue:   []byte("diftp"),
-			expRoot:    "a95e7824ca69532428f3050ea7ac90b6ceb8af5b2bc51660f7bf13d64c74e76b",
-			expLeafLen: 2,
-		},
-		{
-			name:       "Add to tree with two leaves",
-			initial:    [][]byte{[]byte("yolo"), []byte("diftp")},
-			newValue:   []byte("ngmi"),
-			expRoot:    "c015cc9ef945a1aa2e3936249b45eeeccb80a4ab1b87aebefcd0f9844d857b84",
-			expLeafLen: 3,
-		},
-		{
-			name:       "Add to tree with three leaves",
-			initial:    [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
-			newValue:   []byte("lfg"),
-			expRoot:    "84cfef8f4e7b9e3160b9734ed3237160dd822a8f593fc00fd6c813cd23ea8975",
-			expLeafLen: 4,
-		},
-		{
-			name:       "Add to tree with four leaves",
-			initial:    [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi"), []byte("lfg")},
-			newValue:   []byte("gm"),
-			expRoot:    "4be17851d49a86df2667e3a50911e38742f232453e19eb6386441d0f0ccbf37b",
-			expLeafLen: 5,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			hashFunc := sha256.New()
-			tree, err := NewTree(tc.initial, hashFunc)
-			require.NoError(t, err)
-
-			tree.AddLeaf(tc.newValue)
-
-			assert.Equal(t, tc.expRoot, hex.EncodeToString(tree.Root.Hash), "Tree root mismatch")
-			assert.Len(t, tree.Leaves, tc.expLeafLen, "Leaf count should match expected count after addition")
-			assert.NotNil(t, tree.Root, "Tree root should not be nil after adding a leaf")
-		})
-	}
-}
-
 func TestUpdateLeaf(t *testing.T) {
 	t.Parallel()
 
@@ -451,33 +394,6 @@ func BenchmarkNewTree(b *testing.B) {
 				if err != nil {
 					b.Errorf("Error creating Merkle tree: %v", err)
 				}
-			}
-		})
-	}
-}
-
-func BenchmarkAddLeaf(b *testing.B) {
-	tests := []struct {
-		name string
-		size int
-	}{
-		{name: "1,000 leaves", size: 1000},
-		{name: "10,000 leaves", size: 10_000},
-		{name: "100,000 leaves", size: 100_000},
-		{name: "1,000,000 leaves", size: 1_000_000},
-	}
-
-	for _, tc := range tests {
-		b.Run(tc.name, func(b *testing.B) {
-			data := generateDummyData(tc.size)
-			hashFunc := sha256.New()
-			tree, _ := NewTree(data, hashFunc)
-
-			newLeaf := []byte("newLeaf")
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				tree.AddLeaf(newLeaf)
 			}
 		})
 	}

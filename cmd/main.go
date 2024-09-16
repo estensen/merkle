@@ -10,9 +10,10 @@ import (
 func main() {
 	// Example leaves
 	leaves := [][]byte{
-		[]byte("leaf1"),
-		[]byte("leaf2"),
-		[]byte("leaf3"),
+		[]byte("yolo"),
+		[]byte("diftp"),
+		[]byte("ngmi"),
+		[]byte("lfg"),
 	}
 
 	// Initialize a Merkle tree with SHA-256
@@ -25,14 +26,14 @@ func main() {
 
 	tree.PrintTree()
 
-	proof, err := tree.GenerateProof([]byte("leaf1"))
+	proof, err := tree.GenerateProof([]byte("diftp"))
 	if err != nil {
 		panic(err)
 	}
 
-	isValid := tree.VerifyProof(proof, []byte("leaf1"))
+	isValid := tree.VerifyProof(proof, []byte("diftp"))
 	if !isValid {
-		panic("failed to verify proof for leaf1")
+		panic("failed to verify proof for diftp")
 	}
-	fmt.Println("leaf1 is in the tree")
+	fmt.Println("diftp is in the tree")
 }

@@ -98,38 +98,6 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 	return nodes[0]
 }
 
-// AddLeaf adds a new lead to the Merkle tree and recalculates
-// the tree.
-func (t *Tree) AddLeaf(value []byte) {
-	t.HashFunc.Write(value)
-	newLeaf := NewNode(t.HashFunc.Sum(nil), value)
-	t.HashFunc.Reset()
-	t.Leaves = append(t.Leaves, newLeaf)
-
-	// Current tree is empty
-	// Not allowed to init an empty tree,
-	// but this could happen if all leaves are deleted.
-	if t.Root == nil {
-		t.Root = newLeaf
-		return
-	}
-
-	newParent := &Node{
-		Left:  t.Root,
-		Right: newLeaf,
-	}
-	newLeaf.Parent = newParent
-	t.Root.Parent = newParent
-
-	// Recalculate the root hash
-	t.HashFunc.Write(t.Root.Hash)
-	t.HashFunc.Write(newLeaf.Hash)
-	newParent.Hash = t.HashFunc.Sum(nil)
-	t.HashFunc.Reset()
-
-	t.Root = newParent
-}
-
 // UpdateLeaf updates the value of the leaf at the given index
 // and recalculates the tree.
 func (t *Tree) UpdateLeaf(index int, newVal []byte) error {
