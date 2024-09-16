@@ -18,10 +18,11 @@ var (
 
 // Node represents a node in the Merkle tree
 type Node struct {
-	Left  *Node
-	Right *Node
-	Hash  []byte
-	Value []byte
+	Left   *Node
+	Right  *Node
+	Parent *Node
+	Hash   []byte
+	Value  []byte
 }
 
 func NewNode(hash, val []byte) *Node {
@@ -86,11 +87,32 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 // the tree.
 func (m *Tree) AddLeaf(value []byte) {
 	m.HashFunc.Write(value)
-	leaf := NewNode(m.HashFunc.Sum(nil), value)
+	newLeaf := NewNode(m.HashFunc.Sum(nil), value)
+	m.HashFunc.Reset()
+	m.Leaves = append(m.Leaves, newLeaf)
+
+	// Current tree is empty
+	// Not allowed to init an empty tree,
+	// but this could happen if all leaves are deleted.
+	if m.Root == nil {
+		m.Root = newLeaf
+		return
+	}
+
+	newParent := &Node{
+		Left:  m.Root,
+		Right: newLeaf,
+	}
+	newLeaf.Parent = newParent
+	m.Root.Parent = newParent
+
+	// Recalculate the root hash
+	m.HashFunc.Write(m.Root.Hash)
+	m.HashFunc.Write(newLeaf.Hash)
+	newParent.Hash = m.HashFunc.Sum(nil)
 	m.HashFunc.Reset()
 
-	m.Leaves = append(m.Leaves, leaf)
-	m.Root = buildTree(m.Leaves, m.HashFunc)
+	m.Root = newParent
 }
 
 // UpdateLeaf updates the value of the leaf at the given index
