@@ -150,7 +150,7 @@ func TestUpdateLeaf(t *testing.T) {
 			if tc.err != nil {
 				assert.Equal(t, tc.err, err, "Expected error")
 			} else {
-				assert.NoError(t, err, "No error expected for valid update")
+				require.NoError(t, err, "No error expected for valid update")
 				assert.Equal(t, tc.newValue, tree.Leaves[tc.index].Value)
 			}
 		})
@@ -209,7 +209,7 @@ func TestRemoveLeaf(t *testing.T) {
 			if tc.err != nil {
 				assert.ErrorIs(t, tc.err, err, "Expected error")
 			} else {
-				assert.NoError(t, err, "No error expected for valid removal")
+				require.NoError(t, err, "No error expected for valid removal")
 				if tc.expLeafLen > 0 && tc.removeIdx < len(tree.Leaves)-1 {
 					assert.NotEqual(t, oldVal, tree.Leaves[tc.removeIdx])
 				}
