@@ -43,12 +43,12 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 	}
 
 	// Convert leaves into Nodes
-	nodes := make([]*Node, 0, len(values))
-	for _, val := range values {
+	nodes := make([]*Node, len(values))
+	for i, val := range values {
 		hashFunc.Write(val)
 		hashedValue := hashFunc.Sum(nil)
 		node := NewNode(hashedValue, val)
-		nodes = append(nodes, node)
+		nodes[i] = node
 		hashFunc.Reset()
 	}
 
