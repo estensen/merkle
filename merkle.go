@@ -2,12 +2,14 @@ package merkle
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
 	"slices"
 	"strings"
+	"sync"
 )
 
 var (
@@ -32,63 +34,99 @@ func NewNode(hash, val []byte) *Node {
 // Tree represents a Merkle tree
 type Tree struct {
 	Root     *Node
-	HashFunc hash.Hash
+	HashFunc func() hash.Hash
 	Leaves   []*Node
 }
 
+var hashPool = sync.Pool{
+	New: func() interface{} {
+		return sha256.New()
+	},
+}
+
+func getHash() hash.Hash {
+	return hashPool.Get().(hash.Hash)
+}
+
+func putHash(h hash.Hash) {
+	h.Reset()
+	hashPool.Put(h)
+}
+
 // NewTree creates a new Merkle tree from the given values and hash function.
-func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
+func NewTree(values [][]byte, hashFunc func() hash.Hash) (*Tree, error) {
 	if len(values) == 0 {
 		return nil, ErrNoLeaves
 	}
 
-	// Convert leaves into Nodes
-	nodes := make([]*Node, 0, len(values))
-	for _, val := range values {
-		hashFunc.Write(val)
-		hashedValue := hashFunc.Sum(nil)
+	nodes := make([]*Node, len(values))
+	for i, val := range values {
+		localHashFunc := getHash()
+		localHashFunc.Write(val)
+		hashedValue := localHashFunc.Sum(nil)
+		putHash(localHashFunc)
+
 		node := NewNode(hashedValue, val)
-		nodes = append(nodes, node)
-		hashFunc.Reset()
+		nodes[i] = node
 	}
 
 	tree := &Tree{
 		HashFunc: hashFunc,
+		Leaves:   nodes,
 	}
 	tree.Root = buildTree(nodes, hashFunc)
-	tree.Leaves = nodes
 
 	return tree, nil
 }
 
-func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
-	for len(nodes) > 1 {
-		parents := make([]*Node, 0, (len(nodes)+1)/2)
-		for i := 0; i < len(nodes); i += 2 {
-			left := nodes[i]
-			var right *Node
-			if i+1 < len(nodes) {
-				right = nodes[i+1]
-			}
-			hashFunc.Write(left.Hash)
-			if right != nil {
-				hashFunc.Write(right.Hash)
-			}
-			parentHash := hashFunc.Sum(nil)
-			hashFunc.Reset()
-			parents = append(parents, &Node{Hash: parentHash, Left: left, Right: right})
-		}
-		nodes = parents
+func buildTree(nodes []*Node, hashFunc func() hash.Hash) *Node {
+	if len(nodes) == 0 {
+		return nil
 	}
-	return nodes[0]
+	if len(nodes) == 1 {
+		return nodes[0]
+	}
+
+	parentNodes := make([]*Node, (len(nodes)+1)/2)
+
+	for i := 0; i < len(nodes); i += 2 {
+		left := nodes[i]
+		var right *Node
+		if i+1 < len(nodes) {
+			right = nodes[i+1]
+		} else {
+			parentNodes[i/2] = left
+			continue
+		}
+
+		localHashFunc := getHash()
+		localHashFunc.Write(left.Hash)
+		localHashFunc.Write(right.Hash)
+		parentHash := localHashFunc.Sum(nil)
+		putHash(localHashFunc)
+
+		parentNode := &Node{
+			Hash:  parentHash,
+			Left:  left,
+			Right: right,
+		}
+
+		left.Parent = parentNode
+		right.Parent = parentNode
+
+		parentNodes[i/2] = parentNode
+	}
+
+	return buildTree(parentNodes, hashFunc)
 }
 
 // AddLeaf adds a new lead to the Merkle tree and recalculates
 // the tree.
 func (m *Tree) AddLeaf(value []byte) {
-	m.HashFunc.Write(value)
-	newLeaf := NewNode(m.HashFunc.Sum(nil), value)
-	m.HashFunc.Reset()
+	localHashFunc := m.HashFunc()
+	localHashFunc.Write(value)
+	newLeaf := NewNode(localHashFunc.Sum(nil), value)
+	localHashFunc.Reset()
 	m.Leaves = append(m.Leaves, newLeaf)
 
 	// Current tree is empty
@@ -107,10 +145,9 @@ func (m *Tree) AddLeaf(value []byte) {
 	m.Root.Parent = newParent
 
 	// Recalculate the root hash
-	m.HashFunc.Write(m.Root.Hash)
-	m.HashFunc.Write(newLeaf.Hash)
-	newParent.Hash = m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	localHashFunc.Write(m.Root.Hash)
+	localHashFunc.Write(newLeaf.Hash)
+	newParent.Hash = localHashFunc.Sum(nil)
 
 	m.Root = newParent
 }
@@ -122,10 +159,11 @@ func (m *Tree) UpdateLeaf(index int, newVal []byte) error {
 		return ErrIndexOutOfBounds
 	}
 
+	localHashFunc := m.HashFunc()
+
 	leaf := m.Leaves[index]
-	m.HashFunc.Write(newVal)
-	leaf.Hash = m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	localHashFunc.Write(newVal)
+	leaf.Hash = localHashFunc.Sum(nil)
 	leaf.Value = newVal
 
 	m.updateParentHashes(leaf)
@@ -135,17 +173,18 @@ func (m *Tree) UpdateLeaf(index int, newVal []byte) error {
 // updateParentHashes propagates changes upwards to the root
 // after a leaf has been updated.
 func (m *Tree) updateParentHashes(leaf *Node) {
+	localHashFunc := m.HashFunc()
 	current := leaf
 	parent := findParent(m.Root, current)
 	for parent != nil {
 		if parent.Left != nil {
-			m.HashFunc.Write(parent.Left.Hash)
+			localHashFunc.Write(parent.Left.Hash)
 		}
 		if parent.Right != nil {
-			m.HashFunc.Write(parent.Right.Hash)
+			localHashFunc.Write(parent.Right.Hash)
 		}
-		parent.Hash = m.HashFunc.Sum(nil)
-		m.HashFunc.Reset()
+		parent.Hash = localHashFunc.Sum(nil)
+		localHashFunc.Reset()
 
 		// Move up the tree
 		current = parent
@@ -255,13 +294,14 @@ func findParent(root, node *Node) *Node {
 
 // VerifyProof returns true if the proof is verified.
 func (m *Tree) VerifyProof(proof *Proof, value []byte) bool {
+	localHashFunc := m.HashFunc()
 	// Start by hashing the leaf value
-	m.HashFunc.Write(value)
-	currentHash := m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	localHashFunc.Write(value)
+	currentHash := localHashFunc.Sum(nil)
+	localHashFunc.Reset()
 
 	for _, siblingHash := range proof.Hashes {
-		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashFunc)
+		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashFunc())
 		// Move up to the next level, adjust the index accordingly
 		proof.Index /= 2
 	}
