@@ -100,87 +100,87 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 
 // AddLeaf adds a new lead to the Merkle tree and recalculates
 // the tree.
-func (m *Tree) AddLeaf(value []byte) {
-	m.HashFunc.Write(value)
-	newLeaf := NewNode(m.HashFunc.Sum(nil), value)
-	m.HashFunc.Reset()
-	m.Leaves = append(m.Leaves, newLeaf)
+func (t *Tree) AddLeaf(value []byte) {
+	t.HashFunc.Write(value)
+	newLeaf := NewNode(t.HashFunc.Sum(nil), value)
+	t.HashFunc.Reset()
+	t.Leaves = append(t.Leaves, newLeaf)
 
 	// Current tree is empty
 	// Not allowed to init an empty tree,
 	// but this could happen if all leaves are deleted.
-	if m.Root == nil {
-		m.Root = newLeaf
+	if t.Root == nil {
+		t.Root = newLeaf
 		return
 	}
 
 	newParent := &Node{
-		Left:  m.Root,
+		Left:  t.Root,
 		Right: newLeaf,
 	}
 	newLeaf.Parent = newParent
-	m.Root.Parent = newParent
+	t.Root.Parent = newParent
 
 	// Recalculate the root hash
-	m.HashFunc.Write(m.Root.Hash)
-	m.HashFunc.Write(newLeaf.Hash)
-	newParent.Hash = m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	t.HashFunc.Write(t.Root.Hash)
+	t.HashFunc.Write(newLeaf.Hash)
+	newParent.Hash = t.HashFunc.Sum(nil)
+	t.HashFunc.Reset()
 
-	m.Root = newParent
+	t.Root = newParent
 }
 
 // UpdateLeaf updates the value of the leaf at the given index
 // and recalculates the tree.
-func (m *Tree) UpdateLeaf(index int, newVal []byte) error {
-	if index < 0 || index >= len(m.Leaves) {
+func (t *Tree) UpdateLeaf(index int, newVal []byte) error {
+	if index < 0 || index >= len(t.Leaves) {
 		return ErrIndexOutOfBounds
 	}
 
-	leaf := m.Leaves[index]
-	m.HashFunc.Write(newVal)
-	leaf.Hash = m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	leaf := t.Leaves[index]
+	t.HashFunc.Write(newVal)
+	leaf.Hash = t.HashFunc.Sum(nil)
+	t.HashFunc.Reset()
 	leaf.Value = newVal
 
-	m.updateParentHashes(leaf)
+	t.updateParentHashes(leaf)
 	return nil
 }
 
 // updateParentHashes propagates changes upwards to the root
 // after a leaf has been updated.
-func (m *Tree) updateParentHashes(leaf *Node) {
+func (t *Tree) updateParentHashes(leaf *Node) {
 	current := leaf
-	parent := findParent(m.Root, current)
+	parent := findParent(t.Root, current)
 	for parent != nil {
 		if parent.Left != nil {
-			m.HashFunc.Write(parent.Left.Hash)
+			t.HashFunc.Write(parent.Left.Hash)
 		}
 		if parent.Right != nil {
-			m.HashFunc.Write(parent.Right.Hash)
+			t.HashFunc.Write(parent.Right.Hash)
 		}
-		parent.Hash = m.HashFunc.Sum(nil)
-		m.HashFunc.Reset()
+		parent.Hash = t.HashFunc.Sum(nil)
+		t.HashFunc.Reset()
 
 		// Move up the tree
 		current = parent
-		parent = findParent(m.Root, current)
+		parent = findParent(t.Root, current)
 	}
 }
 
 // RemoveLeaf removes a leaf at a given index
 // and recalculates the tree.
-func (m *Tree) RemoveLeaf(index int) error {
-	if index < 0 || index >= len(m.Leaves) {
+func (t *Tree) RemoveLeaf(index int) error {
+	if index < 0 || index >= len(t.Leaves) {
 		return ErrIndexOutOfBounds
 	}
 
-	leafToRemove := m.Leaves[index]
-	m.Leaves = slices.Delete(m.Leaves, index, index+1)
+	leafToRemove := t.Leaves[index]
+	t.Leaves = slices.Delete(t.Leaves, index, index+1)
 
 	// If there are no leaves left, the tree is now empty
-	if len(m.Leaves) == 0 {
-		m.Root = nil
+	if len(t.Leaves) == 0 {
+		t.Root = nil
 		return nil
 	}
 
@@ -188,8 +188,8 @@ func (m *Tree) RemoveLeaf(index int) error {
 	parent := leafToRemove.Parent
 	if parent == nil {
 		// The leaf is the root node
-		m.Root = m.Leaves[0]
-		m.Root.Parent = nil
+		t.Root = t.Leaves[0]
+		t.Root.Parent = nil
 		return nil
 	}
 
@@ -199,30 +199,30 @@ func (m *Tree) RemoveLeaf(index int) error {
 		parent.Right = nil
 	}
 
-	m.updateParentHashesAfterRemoval(parent)
+	t.updateParentHashesAfterRemoval(parent)
 
 	return nil
 }
 
 // updateParentHashesAfterRemoval traverses up the tree to update
 // parent hashes after a leaf has been removed.
-func (m *Tree) updateParentHashesAfterRemoval(node *Node) {
+func (t *Tree) updateParentHashesAfterRemoval(node *Node) {
 	current := node
 	for current != nil {
 		if current.Left != nil && current.Right != nil {
 			// Both children exist
-			m.HashFunc.Write(current.Left.Hash)
-			m.HashFunc.Write(current.Right.Hash)
+			t.HashFunc.Write(current.Left.Hash)
+			t.HashFunc.Write(current.Right.Hash)
 		} else if current.Left != nil {
 			// Only left child exists
-			m.HashFunc.Write(current.Left.Hash)
+			t.HashFunc.Write(current.Left.Hash)
 		} else if current.Right != nil {
 			// Only right child exists
-			m.HashFunc.Write(current.Right.Hash)
+			t.HashFunc.Write(current.Right.Hash)
 		}
-		current.Hash = m.HashFunc.Sum(nil)
+		current.Hash = t.HashFunc.Sum(nil)
 		current = current.Parent
-		m.HashFunc.Reset()
+		t.HashFunc.Reset()
 	}
 }
 
@@ -234,35 +234,35 @@ type Proof struct {
 }
 
 // GenerateProof generates an inclucion proof for a given value.
-func (m *Tree) GenerateProof(value []byte) (*Proof, error) {
-	return m.traverseForProof(m.Root, value, 0)
+func (t *Tree) GenerateProof(value []byte) (*Proof, error) {
+	return t.traverseForProof(t.Root, value, 0)
 }
 
 // traverseForProof dynamically traverses the tree to find the leaf and construct the proof
-func (m *Tree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
+func (t *Tree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
 	if node == nil {
 		return nil, ErrNoVal
 	}
 
 	if bytes.Equal(node.Value, value) {
-		return m.buildProof(node, index), nil
+		return t.buildProof(node, index), nil
 	}
 
 	// Recursively search the left and right children
-	if proof, err := m.traverseForProof(node.Left, value, index*2); err == nil {
+	if proof, err := t.traverseForProof(node.Left, value, index*2); err == nil {
 		return proof, nil
 	}
-	return m.traverseForProof(node.Right, value, index*2+1)
+	return t.traverseForProof(node.Right, value, index*2+1)
 }
 
 // buildproof constructs the proof of inclucion from the leaf to the root.
-func (m *Tree) buildProof(node *Node, index int) *Proof {
+func (t *Tree) buildProof(node *Node, index int) *Proof {
 	var hashes [][]byte
 	current := node
 
 	for current != nil {
 		siblingHash := []byte{}
-		parent := findParent(m.Root, current)
+		parent := findParent(t.Root, current)
 
 		// Get sibling hash
 		if parent != nil {
@@ -307,20 +307,20 @@ func findParent(root, node *Node) *Node {
 }
 
 // VerifyProof returns true if the proof is verified.
-func (m *Tree) VerifyProof(proof *Proof, value []byte) bool {
+func (t *Tree) VerifyProof(proof *Proof, value []byte) bool {
 	// Start by hashing the leaf value
-	m.HashFunc.Write(value)
-	currentHash := m.HashFunc.Sum(nil)
-	m.HashFunc.Reset()
+	t.HashFunc.Write(value)
+	currentHash := t.HashFunc.Sum(nil)
+	t.HashFunc.Reset()
 
 	for _, siblingHash := range proof.Hashes {
-		currentHash = combineHashes(proof.Index, currentHash, siblingHash, m.HashFunc)
+		currentHash = combineHashes(proof.Index, currentHash, siblingHash, t.HashFunc)
 		// Move up to the next level, adjust the index accordingly
 		proof.Index /= 2
 	}
 
 	// Compare the final calculated root hash with the actual root hash
-	return bytes.Equal(currentHash, m.Root.Hash)
+	return bytes.Equal(currentHash, t.Root.Hash)
 }
 
 // combineHashes combines the current and sibling hashes based on the index.
@@ -341,11 +341,11 @@ func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Has
 	return hash
 }
 
-func (m *Tree) PrintTree() {
-	if m.Root == nil {
+func (t *Tree) PrintTree() {
+	if t.Root == nil {
 		fmt.Println("Empty tree")
 	} else {
-		fmt.Print(m.Root.StringifyTree("", false))
+		fmt.Print(t.Root.StringifyTree("", false))
 	}
 }
 
