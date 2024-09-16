@@ -175,6 +175,7 @@ func (m *Tree) RemoveLeaf(index int) error {
 		return ErrIndexOutOfBounds
 	}
 
+	leafToRemove := m.Leaves[index]
 	m.Leaves = slices.Delete(m.Leaves, index, index+1)
 
 	// If there are no leaves left, the tree is now empty
@@ -184,8 +185,45 @@ func (m *Tree) RemoveLeaf(index int) error {
 	}
 
 	// Rebuild the tree with the remaining leaves
-	m.Root = buildTree(m.Leaves, m.HashFunc)
+	parent := leafToRemove.Parent
+	if parent == nil {
+		// The leaf is the root node
+		m.Root = m.Leaves[0]
+		m.Root.Parent = nil
+		return nil
+	}
+
+	if parent.Left == leafToRemove {
+		parent.Left = nil
+	} else if parent.Right == leafToRemove {
+		parent.Right = nil
+	}
+
+	m.updateParentHashesAfterRemoval(parent)
+
 	return nil
+}
+
+// updateParentHashesAfterRemoval traverses up the tree to update
+// parent hashes after a leaf has been removed.
+func (m *Tree) updateParentHashesAfterRemoval(node *Node) {
+	current := node
+	for current != nil {
+		if current.Left != nil && current.Right != nil {
+			// Both children exist
+			m.HashFunc.Write(current.Left.Hash)
+			m.HashFunc.Write(current.Right.Hash)
+		} else if current.Left != nil {
+			// Only left child exists
+			m.HashFunc.Write(current.Left.Hash)
+		} else if current.Right != nil {
+			// Only right child exists
+			m.HashFunc.Write(current.Right.Hash)
+		}
+		current.Hash = m.HashFunc.Sum(nil)
+		current = current.Parent
+		m.HashFunc.Reset()
+	}
 }
 
 // Proof represents the hash chain from a leaf to the root
