@@ -4,11 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"strconv"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/sha3"
 )
 
 func TestNewTree(t *testing.T) {
@@ -372,24 +373,13 @@ func TestStringifyTree(t *testing.T) {
 	}
 }
 
-func BenchmarkNewTree(b *testing.B) {
-	tests := []struct {
-		name string
-		size int
-	}{
-		{name: "1,000 leaves", size: 1000},
-		{name: "10,000 leaves", size: 10_000},
-		{name: "100,000 leaves", size: 100_000},
-		{name: "1,000,000 leaves", size: 1_000_000},
-	}
-
-	for _, tc := range tests {
-		b.Run(tc.name, func(b *testing.B) {
-			data := generateDummyData(tc.size)
+func BenchmarkMyTreeConstruction(b *testing.B) {
+	for _, size := range []int{1024, 16384, 131072} {
+		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
+			data := generateDummyData(size)
+			hashFunc := sha3.NewLegacyKeccak256()
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
-				hashFunc := sha256.New()
 				_, err := NewTree(data, hashFunc)
 				if err != nil {
 					b.Errorf("Error creating Merkle tree: %v", err)
@@ -399,63 +389,43 @@ func BenchmarkNewTree(b *testing.B) {
 	}
 }
 
-func BenchmarkUpdateLeaf(b *testing.B) {
-	tests := []struct {
-		name string
-		size int
-	}{
-		{name: "1,000 leaves", size: 1000},
-		{name: "10,000 leaves", size: 10_000},
-		{name: "100,000 leaves", size: 100_000},
-		{name: "1,000,000 leaves", size: 1_000_000},
-	}
-
-	for _, tc := range tests {
-		b.Run(tc.name, func(b *testing.B) {
-			data := generateDummyData(tc.size)
+func BenchmarkMyProofGeneration(b *testing.B) {
+	for _, size := range []int{1000, 10000, 100000} {
+		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
+			data := generateDummyData(size)
 			hashFunc := sha256.New()
 			tree, _ := NewTree(data, hashFunc)
-
-			newValue := []byte("updatedLeaf")
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
-				_ = tree.UpdateLeaf(tc.size/2, newValue)
+				tree.GenerateProof(data[size/2])
 			}
 		})
 	}
 }
 
-func BenchmarkRemoveLeaf(b *testing.B) {
-	tests := []struct {
-		name string
-		size int
-	}{
-		{name: "1,000 leaves", size: 1000},
-		{name: "10,000 leaves", size: 10_000},
-		{name: "100,000 leaves", size: 100_000},
-		{name: "1,000,000 leaves", size: 1_000_000},
-	}
-
-	for _, tc := range tests {
-		b.Run(tc.name, func(b *testing.B) {
-			data := generateDummyData(tc.size)
+func BenchmarkMyProofVerification(b *testing.B) {
+	for _, size := range []int{1000, 10000, 100000} {
+		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
+			data := generateDummyData(size)
 			hashFunc := sha256.New()
 			tree, _ := NewTree(data, hashFunc)
-
+			proof, _ := tree.GenerateProof(data[size/2])
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
-				_ = tree.RemoveLeaf(tc.size / 2)
+				tree.VerifyProof(proof, data[size/2])
 			}
 		})
 	}
 }
 
 func generateDummyData(size int) [][]byte {
-	data := make([][]byte, 0, size)
+	data := make([][]byte, size)
 	for i := 0; i < size; i++ {
-		data = append(data, []byte("leaf"+strconv.Itoa(i)))
+		// Create a fixed size [32]byte and convert it to a slice
+		// to align benchmarks
+		var fixedSizeArray [32]byte
+		copy(fixedSizeArray[:], []byte(fmt.Sprintf("leaf-%d", i)))
+		data[i] = fixedSizeArray[:]
 	}
 	return data
 }
