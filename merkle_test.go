@@ -80,30 +80,35 @@ func TestAddLeaf(t *testing.T) {
 		name       string
 		initial    [][]byte
 		newValue   []byte
+		expRoot    string
 		expLeafLen int
 	}{
 		{
 			name:       "Add to tree with one leaf",
-			initial:    [][]byte{[]byte("leaf1")},
-			newValue:   []byte("leaf2"),
+			initial:    [][]byte{[]byte("yolo")},
+			newValue:   []byte("diftp"),
+			expRoot:    "a95e7824ca69532428f3050ea7ac90b6ceb8af5b2bc51660f7bf13d64c74e76b",
 			expLeafLen: 2,
 		},
 		{
 			name:       "Add to tree with two leaves",
-			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2")},
-			newValue:   []byte("leaf3"),
+			initial:    [][]byte{[]byte("yolo"), []byte("diftp")},
+			newValue:   []byte("ngmi"),
+			expRoot:    "c015cc9ef945a1aa2e3936249b45eeeccb80a4ab1b87aebefcd0f9844d857b84",
 			expLeafLen: 3,
 		},
 		{
 			name:       "Add to tree with three leaves",
-			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3")},
-			newValue:   []byte("leaf4"),
+			initial:    [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
+			newValue:   []byte("lfg"),
+			expRoot:    "84cfef8f4e7b9e3160b9734ed3237160dd822a8f593fc00fd6c813cd23ea8975",
 			expLeafLen: 4,
 		},
 		{
 			name:       "Add to tree with four leaves",
-			initial:    [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3"), []byte("leaf4")},
-			newValue:   []byte("leaf5"),
+			initial:    [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi"), []byte("lfg")},
+			newValue:   []byte("gm"),
+			expRoot:    "4be17851d49a86df2667e3a50911e38742f232453e19eb6386441d0f0ccbf37b",
 			expLeafLen: 5,
 		},
 	}
@@ -118,6 +123,7 @@ func TestAddLeaf(t *testing.T) {
 
 			tree.AddLeaf(tc.newValue)
 
+			assert.Equal(t, tc.expRoot, hex.EncodeToString(tree.Root.Hash), "Tree root mismatch")
 			assert.Len(t, tree.Leaves, tc.expLeafLen, "Leaf count should match expected count after addition")
 			assert.NotNil(t, tree.Root, "Tree root should not be nil after adding a leaf")
 		})
