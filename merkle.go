@@ -8,12 +8,22 @@ import (
 	"hash"
 	"slices"
 	"strings"
+	"sync"
+
+	"golang.org/x/crypto/sha3"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
 	ErrNoLeaves         = errors.New("cannot create a tree with no leaves")
 	ErrNoVal            = errors.New("value not found in the tree")
 	ErrIndexOutOfBounds = errors.New("index out of bounds")
+
+	hashPool = sync.Pool{
+		New: func() interface{} {
+			return sha3.NewLegacyKeccak256()
+		},
+	}
 )
 
 // Node represents a node in the Merkle tree
@@ -42,14 +52,13 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 		return nil, ErrNoLeaves
 	}
 
+	preHashedLeaves := preHashLeaves(values, len(values)/4)
+
 	// Convert leaves into Nodes
-	nodes := make([]*Node, len(values))
-	for i, val := range values {
-		hashFunc.Write(val)
-		hashedValue := hashFunc.Sum(nil)
-		node := NewNode(hashedValue, val)
+	nodes := make([]*Node, len(preHashedLeaves))
+	for i, hash := range preHashedLeaves {
+		node := NewNode(hash, values[i])
 		nodes[i] = node
-		hashFunc.Reset()
 	}
 
 	tree := &Tree{
@@ -59,6 +68,40 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 	tree.Leaves = nodes
 
 	return tree, nil
+}
+
+// preHashLeaves prehashes the values
+func preHashLeaves(values [][]byte, batchSize int) [][]byte {
+	preHashedLeaves := make([][]byte, len(values))
+
+	var g errgroup.Group
+	g.SetLimit(8)
+
+	for batchStart := 0; batchStart < len(values); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(values) {
+			batchEnd = len(values)
+		}
+
+		batchStart, batchEnd := batchStart, batchEnd
+		g.Go(func() error {
+			hasher := hashPool.Get().(hash.Hash)
+			defer hashPool.Put(hasher)
+
+			for i := batchStart; i < batchEnd; i++ {
+				hasher.Reset()
+				hasher.Write(values[i])
+				preHashedLeaves[i] = hasher.Sum(nil)
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
+
+	return preHashedLeaves
 }
 
 func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
