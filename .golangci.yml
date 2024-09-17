@@ -11,14 +11,26 @@ linters:
   enable:
     - bidichk
     - durationcheck
+    - err113
+    - errcheck
+    - gocritic
+    - gofmt
     - goimports
+    - gosec
     - gosimple
     - govet
     - ineffassign
+    - makezero
     - misspell
+    - nakedret
+    - nilerr
+    - nonamedreturns
+    - prealloc
+    - revive
     - staticcheck
     - typecheck
-    - unused
     - unconvert
-    - revive
+    - unparam
+    - unused
+    - wastedassign
     - whitespace
