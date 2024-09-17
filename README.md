@@ -58,7 +58,7 @@ func main() {
 ## Output
 
 ```
-❯ go run cmd/main.go
+❯ go run examples/example.go
 c4e2cee656a5eba68e478af89e7e1ed9a0962b8496700eb0602d3540365871dd
     ├── cea713a5636f023630cde24d4f4ffd9cd2b5417d60af79304c6ba7427dfdbee1
     │   ├── d103cfb5e499c566904787533afbdec56f95492d67fc00e2c0d0161ba99653f1
