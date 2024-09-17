@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -68,7 +69,7 @@ func NewTree(values [][]byte, newHashFunc func() hash.Hash) (*Tree, error) {
 func preHashLeaves(values [][]byte, newHashFunc func() hash.Hash) [][]byte {
 	preHashedLeaves := make([][]byte, len(values))
 
-	numWorkers := 8
+	numWorkers := runtime.NumCPU()
 	if len(values) < numWorkers {
 		numWorkers = len(values)
 	}
