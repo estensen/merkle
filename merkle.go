@@ -223,11 +223,7 @@ func (t *Tree) updateParentHashesAfterRemoval(node *Node) {
 	current := node
 	for current != nil {
 		t.HashFunc.Reset()
-		if current.Left != nil && current.Right != nil {
-			// Both children exist
-			t.HashFunc.Write(current.Left.Hash)
-			t.HashFunc.Write(current.Right.Hash)
-		} else if current.Left != nil {
+		if current.Left != nil {
 			// Only left child exists
 			t.HashFunc.Write(current.Left.Hash)
 		} else if current.Right != nil {
