@@ -167,8 +167,8 @@ func (t *Tree) UpdateLeaf(index int, newVal []byte) error {
 // after a leaf has been updated.
 func (t *Tree) updateParentHashes(leaf *Node) {
 	current := leaf
-	parent := findParent(t.Root, current)
-	for parent != nil {
+	for current.Parent != nil {
+		parent := current.Parent
 		t.HashFunc.Reset()
 		if parent.Left != nil {
 			t.HashFunc.Write(parent.Left.Hash)
@@ -177,10 +177,7 @@ func (t *Tree) updateParentHashes(leaf *Node) {
 			t.HashFunc.Write(parent.Right.Hash)
 		}
 		parent.Hash = t.HashFunc.Sum(nil)
-
-		// Move up the tree
 		current = parent
-		parent = findParent(t.Root, current)
 	}
 }
 
@@ -251,75 +248,49 @@ type Proof struct {
 
 // GenerateProof generates an inclucion proof for a given value.
 func (t *Tree) GenerateProof(value []byte) (*Proof, error) {
-	return t.traverseForProof(t.Root, value, 0)
-}
-
-// traverseForProof dynamically traverses the tree to find the leaf and construct the proof
-func (t *Tree) traverseForProof(node *Node, value []byte, index int) (*Proof, error) {
-	if node == nil {
-		return nil, ErrNoVal
-	}
-
-	if bytes.Equal(node.Value, value) {
-		return t.buildProof(node, index), nil
-	}
-
-	// Recursively search the left and right children
-	if proof, err := t.traverseForProof(node.Left, value, index*2); err == nil {
-		return proof, nil
-	}
-	return t.traverseForProof(node.Right, value, index*2+1)
-}
-
-// buildproof constructs the proof of inclucion from the leaf to the root.
-func (t *Tree) buildProof(node *Node, index int) *Proof {
-	var hashes [][]byte
-	current := node
-
-	for current != nil {
-		siblingHash := []byte{}
-		parent := findParent(t.Root, current)
-
-		// Get sibling hash
-		if parent != nil {
-			if parent.Left == current {
-				if parent.Right != nil {
-					siblingHash = parent.Right.Hash
-				}
-			} else {
-				if parent.Left != nil {
-					siblingHash = parent.Left.Hash
-				}
-			}
-			hashes = append(hashes, siblingHash)
+	for idx, leaf := range t.Leaves {
+		if bytes.Equal(leaf.Value, value) {
+			return t.GenerateProofByIndex(idx)
 		}
+	}
+	return nil, ErrNoVal
+}
 
-		// Move up the tree
+func (t *Tree) GenerateProofByIndex(index int) (*Proof, error) {
+	if index < 0 || index >= len(t.Leaves) {
+		return nil, ErrIndexOutOfBounds
+	}
+	leaf := t.Leaves[index]
+	return t.buildProof(leaf, index), nil
+}
+
+func (t *Tree) buildProof(leaf *Node, index int) *Proof {
+	var hashes [][]byte
+	current := leaf
+	idx := index
+
+	for current.Parent != nil {
+		siblingHash := []byte{}
+		parent := current.Parent
+
+		if parent.Left == current {
+			if parent.Right != nil {
+				siblingHash = parent.Right.Hash
+			}
+		} else {
+			if parent.Left != nil {
+				siblingHash = parent.Left.Hash
+			}
+		}
+		hashes = append(hashes, siblingHash)
 		current = parent
+		idx /= 2
 	}
 
 	return &Proof{
 		Hashes: hashes,
 		Index:  index,
 	}
-}
-
-// findParent traverses the tree to find the parent of a given node.
-func findParent(root, node *Node) *Node {
-	if root == nil || root == node {
-		return nil
-	}
-
-	// Check if either left or right child is the target node
-	if root.Left == node || root.Right == node {
-		return root
-	}
-
-	// Recursively check the left and right children
-	if parent := findParent(root.Left, node); parent != nil {
-		return parent
-	}
-	return findParent(root.Right, node)
 }
 
 // VerifyProof returns true if the proof is verified.
@@ -330,7 +301,8 @@ func (t *Tree) VerifyProof(proof *Proof, value []byte) bool {
 	currentHash := t.HashFunc.Sum(nil)
 
 	for _, siblingHash := range proof.Hashes {
-		currentHash = combineHashes(proof.Index, currentHash, siblingHash, t.HashFunc)
+		index := proof.Index
+		currentHash = combineHashes(index, currentHash, siblingHash, t.HashFunc)
 		// Move up to the next level, adjust the index accordingly
 		proof.Index /= 2
 	}

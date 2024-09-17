@@ -372,7 +372,7 @@ func TestStringifyTree(t *testing.T) {
 	}
 }
 
-func BenchmarkMyTreeConstruction(b *testing.B) {
+func BenchmarkTreeConstruction(b *testing.B) {
 	for _, size := range []int{1024, 16384, 131072} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
@@ -388,7 +388,7 @@ func BenchmarkMyTreeConstruction(b *testing.B) {
 	}
 }
 
-func BenchmarkMyProofGeneration(b *testing.B) {
+func BenchmarkProofGeneration(b *testing.B) {
 	for _, size := range []int{1000, 10000, 100000} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
@@ -402,7 +402,7 @@ func BenchmarkMyProofGeneration(b *testing.B) {
 	}
 }
 
-func BenchmarkMyProofVerification(b *testing.B) {
+func BenchmarkProofVerification(b *testing.B) {
 	for _, size := range []int{1000, 10000, 100000} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
