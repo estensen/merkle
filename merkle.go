@@ -190,28 +190,22 @@ func (t *Tree) RemoveLeaf(index int) error {
 
 	leafToRemove := t.Leaves[index]
 	t.Leaves = slices.Delete(t.Leaves, index, index+1)
+	parent := leafToRemove.Parent
 
 	// If there are no leaves left, the tree is now empty
-	if len(t.Leaves) == 0 {
+	if len(t.Leaves) == 0 && parent == nil {
 		t.Root = nil
 		return nil
 	}
 
-	// Rebuild the tree with the remaining leaves
-	parent := leafToRemove.Parent
-	if parent == nil {
-		// The leaf is the root node
-		t.Root = t.Leaves[0]
-		t.Root.Parent = nil
-		return nil
-	}
-
+	// Remove leaf ref from parent
 	if parent.Left == leafToRemove {
 		parent.Left = nil
 	} else if parent.Right == leafToRemove {
 		parent.Right = nil
 	}
 
+	// Traverse tree upwards and update hashes
 	t.updateParentHashesAfterRemoval(parent)
 
 	return nil
