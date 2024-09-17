@@ -58,7 +58,7 @@ func TestNewTree(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
 
 			if tc.err != nil {
@@ -107,7 +107,7 @@ func TestUpdateLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
 			require.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestRemoveLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, err := NewTree(tc.initial, hashFunc)
 			require.NoError(t, err)
 
@@ -241,7 +241,7 @@ func TestProofOfInclusion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
 			require.NoError(t, err)
 
@@ -363,7 +363,7 @@ func TestStringifyTree(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
 			require.NoError(t, err)
 
@@ -377,7 +377,7 @@ func BenchmarkMyTreeConstruction(b *testing.B) {
 	for _, size := range []int{1024, 16384, 131072} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
-			hashFunc := sha3.NewLegacyKeccak256()
+			hashFunc := sha3.NewLegacyKeccak256
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := NewTree(data, hashFunc)
@@ -393,7 +393,7 @@ func BenchmarkMyProofGeneration(b *testing.B) {
 	for _, size := range []int{1000, 10000, 100000} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, _ := NewTree(data, hashFunc)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -407,7 +407,7 @@ func BenchmarkMyProofVerification(b *testing.B) {
 	for _, size := range []int{1000, 10000, 100000} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
-			hashFunc := sha256.New()
+			hashFunc := sha256.New
 			tree, _ := NewTree(data, hashFunc)
 			proof, _ := tree.GenerateProof(data[size/2])
 			b.ResetTimer()

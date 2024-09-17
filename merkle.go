@@ -2,7 +2,6 @@ package merkle
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -40,12 +39,12 @@ type Tree struct {
 }
 
 // NewTree creates a new Merkle tree from the given values and hash function.
-func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
+func NewTree(values [][]byte, newHashFunc func() hash.Hash) (*Tree, error) {
 	if len(values) == 0 {
 		return nil, ErrNoLeaves
 	}
 
-	preHashedLeaves := preHashLeaves(values, hashFunc)
+	preHashedLeaves := preHashLeaves(values, newHashFunc)
 
 	// Convert leaves into Nodes
 	nodes := make([]*Node, len(preHashedLeaves))
@@ -53,6 +52,8 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 		node := NewNode(hash, values[i])
 		nodes[i] = node
 	}
+
+	hashFunc := newHashFunc()
 
 	tree := &Tree{
 		HashFunc: hashFunc,
@@ -64,7 +65,7 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 }
 
 // preHashLeaves prehashes the values
-func preHashLeaves(values [][]byte, _ hash.Hash) [][]byte {
+func preHashLeaves(values [][]byte, newHashFunc func() hash.Hash) [][]byte {
 	preHashedLeaves := make([][]byte, len(values))
 
 	numWorkers := 8
@@ -90,7 +91,7 @@ func preHashLeaves(values [][]byte, _ hash.Hash) [][]byte {
 		}
 
 		g.Go(func() error {
-			hasher := sha256.New()
+			hasher := newHashFunc()
 			for j := start; j < end; j++ {
 				hasher.Reset()
 				hasher.Write(values[j])
