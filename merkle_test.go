@@ -1,6 +1,7 @@
 package merkle
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -235,16 +236,13 @@ func TestGenerateProof(t *testing.T) {
 			values:     [][]byte{[]byte("yolo"), []byte("diftp"), []byte("ngmi")},
 			proofValue: []byte("diftp"),
 			expProof: func() Proof {
-				// First sibling hash: Hash of "yolo"
 				siblingHashL1 := sha256.Sum256([]byte("yolo"))
-
-				// Second sibling hash: Hash of "ngmi" (leaf on the right)
 				siblingHashL2 := sha256.Sum256([]byte("ngmi"))
 
 				return Proof{
 					// Both sibling hashes are needed
 					Hashes: [][]byte{siblingHashL1[:], siblingHashL2[:]},
-					Index:  1, // Index for "diftp" is 1
+					Index:  1,
 				}
 			}(),
 		},
@@ -308,6 +306,92 @@ func TestGenerateProof(t *testing.T) {
 					assert.Equal(t, hash, proof.Hashes[i])
 				}
 				assert.Equal(t, tc.expProof.Index, proof.Index)
+			}
+		})
+	}
+}
+
+func TestGenerateProofByIndex(t *testing.T) {
+	tests := []struct {
+		name     string
+		leaves   [][]byte
+		index    int
+		err      error
+		expProof Proof
+	}{
+		{
+			name:   "Valid index 0",
+			leaves: [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3")},
+			index:  0,
+			expProof: func() Proof {
+				siblingHashL2 := sha256.Sum256([]byte("leaf2"))
+				siblingHashL3 := sha256.Sum256([]byte("leaf3"))
+
+				return Proof{
+					Hashes: [][]byte{siblingHashL2[:], siblingHashL3[:]},
+					Index:  0,
+				}
+			}(),
+		},
+		{
+			name:   "Valid index 2",
+			leaves: [][]byte{[]byte("leaf1"), []byte("leaf2"), []byte("leaf3")},
+			index:  2,
+			expProof: func() Proof {
+				siblingHashL12 := func() []byte {
+					hashL1 := sha256.Sum256([]byte("leaf1"))
+					hashL2 := sha256.Sum256([]byte("leaf2"))
+					return combineHashes(hashL1[:], hashL2[:], sha256.New())
+				}()
+
+				return Proof{
+					Hashes: [][]byte{siblingHashL12},
+					Index:  2,
+				}
+			}(),
+		},
+		{
+			name:   "Invalid index (out of bounds)",
+			leaves: [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			index:  5,
+			err:    ErrIndexOutOfBounds,
+		},
+		{
+			name:   "Negative index (invalid)",
+			leaves: [][]byte{[]byte("leaf1"), []byte("leaf2")},
+			index:  -1,
+			err:    ErrIndexOutOfBounds,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hashFunc := sha256.New
+			tree, err := NewTree(tc.leaves, hashFunc)
+			require.NoError(t, err)
+
+			proof, err := tree.GenerateProofByIndex(tc.index)
+
+			if tc.err != nil {
+				assert.ErrorIs(t, err, tc.err, "Expected error")
+			} else {
+				require.NoError(t, err, "No error expected for valid index")
+
+				// Manually check that the generated proof matches the expected proof
+				require.Equal(t, len(tc.expProof.Hashes), len(proof.Hashes))
+				for i, hash := range tc.expProof.Hashes {
+					actualHash := proof.Hashes[i]
+					if !bytes.Equal(hash, actualHash) {
+						t.Errorf("Hash mismatch at index %d\nExpected: %s\nActual  : %s",
+							i,
+							hex.EncodeToString(hash),
+							hex.EncodeToString(actualHash),
+						)
+					}
+				}
+				assert.Equal(t, tc.expProof.Index, proof.Index, "Index mismatch")
 			}
 		})
 	}

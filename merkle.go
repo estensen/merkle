@@ -288,6 +288,7 @@ func (t *Tree) GenerateProofByIndex(index int) (*Proof, error) {
 
 		// Append the sibling hash to the proof.
 		hashes = append(hashes, siblingHash)
+
 		current = parent
 	}
 
