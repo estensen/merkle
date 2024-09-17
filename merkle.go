@@ -242,7 +242,7 @@ func (t *Tree) GenerateProof(value []byte) (*Proof, error) {
 	var leafIndex int
 	found := false
 
-	// Step 1: Find the leaf node that contains the given value.
+	// Find the leaf node that contains the given value.
 	for i, leaf := range t.Leaves {
 		if bytes.Equal(leaf.Value, value) {
 			leafIndex = i
@@ -256,7 +256,7 @@ func (t *Tree) GenerateProof(value []byte) (*Proof, error) {
 		return nil, ErrNoVal
 	}
 
-	// Step 2: Build the proof for the leaf at the given index.
+	// Build the proof for the leaf at the given index.
 	return t.GenerateProofByIndex(leafIndex)
 }
 
@@ -291,7 +291,6 @@ func (t *Tree) GenerateProofByIndex(index int) (*Proof, error) {
 		current = parent
 	}
 
-	// Step 3: Return the proof.
 	return &Proof{
 		Hashes: hashes,
 		Index:  index,
@@ -301,12 +300,12 @@ func (t *Tree) GenerateProofByIndex(index int) (*Proof, error) {
 // VerifyProof returns true if the proof is verified, otherwise false.
 // It also returns an error if the verification process encounters an issue.
 func (t *Tree) VerifyProof(proof *Proof, value []byte) (bool, error) {
-	// Step 1: Hash the leaf value.
+	// Hash the leaf value.
 	t.HashFunc.Reset()
 	t.HashFunc.Write(value)
 	currentHash := t.HashFunc.Sum(nil)
 
-	// Step 2: Traverse through the proof and compute the root hash.
+	// Traverse through the proof and compute the root hash.
 	index := proof.Index
 	for _, siblingHash := range proof.Hashes {
 		if index%2 == 0 {
@@ -320,13 +319,12 @@ func (t *Tree) VerifyProof(proof *Proof, value []byte) (bool, error) {
 		index /= 2
 	}
 
-	// Step 3: Compare the calculated root hash with the actual root hash.
+	// Compare the calculated root hash with the actual root hash.
 	if !bytes.Equal(currentHash, t.Root.Hash) {
 		return false, fmt.Errorf("%w: expected root %x, but got %x",
 			ErrProofVerificationFailed, t.Root.Hash, currentHash)
 	}
 
-	// Step 4: Return true if the proof is valid.
 	return true, nil
 }
 
