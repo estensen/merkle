@@ -16,24 +16,23 @@ func main() {
 		[]byte("lfg"),
 	}
 
-	// Initialize a Merkle tree with SHA-256
-	hashFunc := sha256.New
-	tree, err := merkle.NewTree(leaves, hashFunc)
-	if err != nil {
-		fmt.Printf("Failed to create Merkle tree: %v\n", err)
-		return
-	}
-
-	tree.PrintTree()
-
-	proof, err := tree.GenerateProof([]byte("diftp"))
+	// Create a Merkle tree with SHA-256
+	tree, err := merkle.NewTree(leaves, sha256.New)
 	if err != nil {
 		panic(err)
 	}
 
-	isValid := tree.VerifyProof(proof, []byte("diftp"))
-	if !isValid {
-		panic("failed to verify proof for diftp")
+	tree.PrintTree()
+
+	proofItem := []byte("diftp")
+	proof, err := tree.GenerateProof(proofItem)
+	if err != nil {
+		panic(err)
 	}
-	fmt.Println("diftp is in the tree")
+
+	isValid := tree.VerifyProof(proof, proofItem)
+	if !isValid {
+		fmt.Printf("%s is in the tree\n", proofItem)
+	}
+	fmt.Printf("%s is in the tree\n", proofItem)
 }
