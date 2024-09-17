@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	ErrNoLeaves         = errors.New("cannot create a tree with no leaves")
-	ErrNoVal            = errors.New("value not found in the tree")
-	ErrIndexOutOfBounds = errors.New("index out of bounds")
+	ErrNoLeaves                = errors.New("cannot create a tree with no leaves")
+	ErrNoVal                   = errors.New("value not found in the tree")
+	ErrIndexOutOfBounds        = errors.New("index out of bounds")
+	ErrProofVerificationFailed = errors.New("proof verification failed")
 )
 
 // Node represents a node in the Merkle tree
@@ -238,31 +239,43 @@ type Proof struct {
 
 // GenerateProof generates an inclucion proof for a given value.
 func (t *Tree) GenerateProof(value []byte) (*Proof, error) {
-	for idx, leaf := range t.Leaves {
+	var leafIndex int
+	found := false
+
+	// Step 1: Find the leaf node that contains the given value.
+	for i, leaf := range t.Leaves {
 		if bytes.Equal(leaf.Value, value) {
-			return t.GenerateProofByIndex(idx)
+			leafIndex = i
+			found = true
+			break
 		}
 	}
-	return nil, ErrNoVal
+
+	// If the leaf is not found, return an error.
+	if !found {
+		return nil, ErrNoVal
+	}
+
+	// Step 2: Build the proof for the leaf at the given index.
+	return t.GenerateProofByIndex(leafIndex)
 }
 
+// GenerateProofByIndex generates a proof for a leaf at the given index.
 func (t *Tree) GenerateProofByIndex(index int) (*Proof, error) {
 	if index < 0 || index >= len(t.Leaves) {
 		return nil, ErrIndexOutOfBounds
 	}
+
 	leaf := t.Leaves[index]
-	return t.buildProof(leaf, index), nil
-}
-
-func (t *Tree) buildProof(leaf *Node, index int) *Proof {
 	var hashes [][]byte
-	current := leaf
-	idx := index
 
+	// Traverse from the leaf to the root and collect sibling hashes.
+	current := leaf
 	for current.Parent != nil {
-		siblingHash := []byte{}
+		var siblingHash []byte
 		parent := current.Parent
 
+		// Collect the sibling hash.
 		if parent.Left == current {
 			if parent.Right != nil {
 				siblingHash = parent.Right.Hash
@@ -272,51 +285,71 @@ func (t *Tree) buildProof(leaf *Node, index int) *Proof {
 				siblingHash = parent.Left.Hash
 			}
 		}
+
+		// Append the sibling hash to the proof.
 		hashes = append(hashes, siblingHash)
 		current = parent
-		idx /= 2
 	}
 
+	// Step 3: Return the proof.
 	return &Proof{
 		Hashes: hashes,
 		Index:  index,
-	}
+	}, nil
 }
 
-// VerifyProof returns true if the proof is verified.
-func (t *Tree) VerifyProof(proof *Proof, value []byte) bool {
-	// Start by hashing the leaf value
+// VerifyProof returns true if the proof is verified, otherwise false.
+// It also returns an error if the verification process encounters an issue.
+func (t *Tree) VerifyProof(proof *Proof, value []byte) (bool, error) {
+	// Step 1: Hash the leaf value.
 	t.HashFunc.Reset()
 	t.HashFunc.Write(value)
 	currentHash := t.HashFunc.Sum(nil)
 
+	// Step 2: Traverse through the proof and compute the root hash.
+	index := proof.Index
 	for _, siblingHash := range proof.Hashes {
-		index := proof.Index
-		currentHash = combineHashes(index, currentHash, siblingHash, t.HashFunc)
-		// Move up to the next level, adjust the index accordingly
-		proof.Index /= 2
+		fmt.Printf("Combining current: %x with sibling: %x at index %d\n", currentHash, siblingHash, index)
+		if index%2 == 0 {
+			// If the index is even, current node is on the left.
+			currentHash = combineHashes(currentHash, siblingHash, t.HashFunc)
+		} else {
+			// If the index is odd, current node is on the right.
+			currentHash = combineHashes(siblingHash, currentHash, t.HashFunc)
+		}
+		// Move up the tree by dividing index by 2.
+		index /= 2
 	}
 
-	// Compare the final calculated root hash with the actual root hash
-	return bytes.Equal(currentHash, t.Root.Hash)
+	// Step 3: Compare the calculated root hash with the actual root hash.
+	if !bytes.Equal(currentHash, t.Root.Hash) {
+		return false, fmt.Errorf("%w: expected root %x, but got %x",
+			ErrProofVerificationFailed, t.Root.Hash, currentHash)
+	}
+
+	// Step 4: Return true if the proof is valid.
+	return true, nil
 }
 
-// combineHashes combines the current and sibling hashes based on the index.
-func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Hash) []byte {
+// combineHashes combines two hashes in the order they appear in the tree.
+// If one of the hashes is empty, it combines only the non-empty hash.
+func combineHashes(leftHash, rightHash []byte, hashFunc hash.Hash) []byte {
 	hashFunc.Reset()
-	// Combine currentHash and siblingHash based on the index
-	// The index determines if the current node is on the left or right
-	if index%2 == 0 {
-		// If the index is even, the current node is on the left
-		hashFunc.Write(currentHash)
-		hashFunc.Write(siblingHash)
-	} else {
-		// If the index is odd, the current node is on the right
-		hashFunc.Write(siblingHash)
-		hashFunc.Write(currentHash)
+
+	// If leftHash is empty, just return the hash of the right one.
+	if len(leftHash) == 0 {
+		return rightHash
 	}
-	hash := hashFunc.Sum(nil)
-	return hash
+
+	// If rightHash is empty, just return the hash of the left one.
+	if len(rightHash) == 0 {
+		return leftHash
+	}
+
+	// Otherwise, combine both hashes.
+	hashFunc.Write(leftHash)
+	hashFunc.Write(rightHash)
+	return hashFunc.Sum(nil)
 }
 
 func (t *Tree) PrintTree() {

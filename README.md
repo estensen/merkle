@@ -35,27 +35,23 @@ func main() {
 	}
 
 	// Create a Merkle tree with SHA-256
-	tree, err := merkle.NewTree(leaves, sha256.New)
-	if err != nil {
-		panic(err)
-	}
+	hashFunc := sha256.New
+	tree, _ := merkle.NewTree(leaves, hashFunc)
 
     // Print ASCII tree
 	tree.PrintTree()
 
     // Generate proof for item
 	proofItem := []byte("leaf2")
-	proof, err := tree.GenerateProof(proofItem)
-	if err != nil {
-		panic(err)
-	}
+	proof, _ := tree.GenerateProof(proofItem)
 
     // Validate proof
-	isValid := tree.VerifyProof(proof, proofItem)
+	isValid, _ := merkle.VerifyProof(proof, proofItem, hashFunc(), tree.Root.Hash)
 	if !isValid {
 		fmt.Printf("%s is in the tree\n", proofItem)
-	}
-	fmt.Printf("%s is in the tree\n", proofItem)
+	} else {
+        fmt.Printf("%s is in the tree\n", proofItem)
+    }
 }
 
 ```
