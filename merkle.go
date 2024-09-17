@@ -75,11 +75,27 @@ func preHashLeaves(values [][]byte, _ hash.Hash) [][]byte {
 	var g errgroup.Group
 	g.SetLimit(numWorkers)
 
-	for i := 0; i < len(values); i++ {
+	// Compute batch size using integer division
+	// and handle remaining values.
+	batchSize := len(values) / numWorkers
+	remainder := len(values) % numWorkers
+
+	for i := 0; i < numWorkers; i++ {
+		start := i * batchSize
+		end := start + batchSize
+
+		// Add remaining values to the last batch
+		if i == numWorkers-1 {
+			end += remainder
+		}
+
 		g.Go(func() error {
 			hasher := sha256.New()
-			hasher.Write(values[i])
-			preHashedLeaves[i] = hasher.Sum(nil)
+			for j := start; j < end; j++ {
+				hasher.Reset()
+				hasher.Write(values[j])
+				preHashedLeaves[j] = hasher.Sum(nil)
+			}
 			return nil
 		})
 	}
