@@ -74,9 +74,9 @@ func preHashLeaves(values [][]byte, hashFunc hash.Hash) [][]byte {
 	preHashedLeaves := make([][]byte, len(values))
 
 	for i := 0; i < len(values); i++ {
+		hashFunc.Reset()
 		hashFunc.Write(values[i])
 		preHashedLeaves[i] = hashFunc.Sum(nil)
-		hashFunc.Reset()
 	}
 
 	return preHashedLeaves
@@ -94,10 +94,10 @@ func buildTree(nodes []*Node, hashFunc hash.Hash) *Node {
 				right := nodes[i+1]
 
 				// Hash the left and right node hashes
+				hashFunc.Reset()
 				hashFunc.Write(left.Hash)
 				hashFunc.Write(right.Hash)
 				parentHash := hashFunc.Sum(nil)
-				hashFunc.Reset()
 
 				parentNode := &Node{
 					Hash:  parentHash,
@@ -127,9 +127,9 @@ func (t *Tree) UpdateLeaf(index int, newVal []byte) error {
 	}
 
 	leaf := t.Leaves[index]
+	t.HashFunc.Reset()
 	t.HashFunc.Write(newVal)
 	leaf.Hash = t.HashFunc.Sum(nil)
-	t.HashFunc.Reset()
 	leaf.Value = newVal
 
 	t.updateParentHashes(leaf)
@@ -142,6 +142,7 @@ func (t *Tree) updateParentHashes(leaf *Node) {
 	current := leaf
 	parent := findParent(t.Root, current)
 	for parent != nil {
+		t.HashFunc.Reset()
 		if parent.Left != nil {
 			t.HashFunc.Write(parent.Left.Hash)
 		}
@@ -149,7 +150,6 @@ func (t *Tree) updateParentHashes(leaf *Node) {
 			t.HashFunc.Write(parent.Right.Hash)
 		}
 		parent.Hash = t.HashFunc.Sum(nil)
-		t.HashFunc.Reset()
 
 		// Move up the tree
 		current = parent
@@ -198,6 +198,7 @@ func (t *Tree) RemoveLeaf(index int) error {
 func (t *Tree) updateParentHashesAfterRemoval(node *Node) {
 	current := node
 	for current != nil {
+		t.HashFunc.Reset()
 		if current.Left != nil && current.Right != nil {
 			// Both children exist
 			t.HashFunc.Write(current.Left.Hash)
@@ -211,7 +212,6 @@ func (t *Tree) updateParentHashesAfterRemoval(node *Node) {
 		}
 		current.Hash = t.HashFunc.Sum(nil)
 		current = current.Parent
-		t.HashFunc.Reset()
 	}
 }
 
@@ -298,9 +298,9 @@ func findParent(root, node *Node) *Node {
 // VerifyProof returns true if the proof is verified.
 func (t *Tree) VerifyProof(proof *Proof, value []byte) bool {
 	// Start by hashing the leaf value
+	t.HashFunc.Reset()
 	t.HashFunc.Write(value)
 	currentHash := t.HashFunc.Sum(nil)
-	t.HashFunc.Reset()
 
 	for _, siblingHash := range proof.Hashes {
 		currentHash = combineHashes(proof.Index, currentHash, siblingHash, t.HashFunc)
@@ -314,6 +314,7 @@ func (t *Tree) VerifyProof(proof *Proof, value []byte) bool {
 
 // combineHashes combines the current and sibling hashes based on the index.
 func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Hash) []byte {
+	hashFunc.Reset()
 	// Combine currentHash and siblingHash based on the index
 	// The index determines if the current node is on the left or right
 	if index%2 == 0 {
@@ -326,7 +327,6 @@ func combineHashes(index int, currentHash, siblingHash []byte, hashFunc hash.Has
 		hashFunc.Write(currentHash)
 	}
 	hash := hashFunc.Sum(nil)
-	hashFunc.Reset()
 	return hash
 }
 
