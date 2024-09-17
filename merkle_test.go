@@ -396,7 +396,7 @@ func BenchmarkMyProofGeneration(b *testing.B) {
 			tree, _ := NewTree(data, hashFunc)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				tree.GenerateProof(data[size/2])
+				_, _ = tree.GenerateProof(data[size/2])
 			}
 		})
 	}
@@ -411,7 +411,7 @@ func BenchmarkMyProofVerification(b *testing.B) {
 			proof, _ := tree.GenerateProof(data[size/2])
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				tree.VerifyProof(proof, data[size/2])
+				_ = tree.VerifyProof(proof, data[size/2])
 			}
 		})
 	}
