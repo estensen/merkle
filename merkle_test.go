@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/sha3"
 )
 
 func TestNewTree(t *testing.T) {
@@ -377,7 +376,7 @@ func BenchmarkMyTreeConstruction(b *testing.B) {
 	for _, size := range []int{1024, 16384, 131072} {
 		b.Run(fmt.Sprintf("%d leaves", size), func(b *testing.B) {
 			data := generateDummyData(size)
-			hashFunc := sha3.NewLegacyKeccak256
+			hashFunc := sha256.New
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := NewTree(data, hashFunc)
