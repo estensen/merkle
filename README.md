@@ -48,7 +48,7 @@ func main() {
 	// Validate proof
 	isValid, _ := tree.VerifyProof(proof, proofItem)
 	if !isValid {
-		fmt.Printf("%s is in the tree\n", proofItem)
+		fmt.Printf("%s is not in the tree\n", proofItem)
 	} else {
 		fmt.Printf("%s is in the tree\n", proofItem)
 	}
