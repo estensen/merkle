@@ -602,7 +602,7 @@ func TestGenerateVerifyProof(t *testing.T) {
 			} else {
 				require.NoError(t, err, "No error expected for generating proof")
 				isValid, err := tree.VerifyProof(proof, tc.proofValue)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.True(t, isValid, "Proof should be valid")
 			}
 		})
