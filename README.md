@@ -38,20 +38,20 @@ func main() {
 	hashFunc := sha256.New
 	tree, _ := merkle.NewTree(leaves, hashFunc)
 
-    // Print ASCII tree
+	// Print ASCII tree
 	tree.PrintTree()
 
-    // Generate proof for item
+	// Generate proof for item
 	proofItem := []byte("leaf2")
 	proof, _ := tree.GenerateProof(proofItem)
 
-    // Validate proof
+	// Validate proof
 	isValid, _ := merkle.VerifyProof(proof, proofItem, hashFunc(), tree.Root.Hash)
 	if !isValid {
 		fmt.Printf("%s is in the tree\n", proofItem)
 	} else {
-        fmt.Printf("%s is in the tree\n", proofItem)
-    }
+		fmt.Printf("%s is in the tree\n", proofItem)
+	}
 }
 
 ```
