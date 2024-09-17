@@ -309,7 +309,6 @@ func (t *Tree) VerifyProof(proof *Proof, value []byte) (bool, error) {
 	// Step 2: Traverse through the proof and compute the root hash.
 	index := proof.Index
 	for _, siblingHash := range proof.Hashes {
-		fmt.Printf("Combining current: %x with sibling: %x at index %d\n", currentHash, siblingHash, index)
 		if index%2 == 0 {
 			// If the index is even, current node is on the left.
 			currentHash = combineHashes(currentHash, siblingHash, t.HashFunc)
