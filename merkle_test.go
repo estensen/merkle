@@ -62,7 +62,7 @@ func TestNewTree(t *testing.T) {
 			tree, err := NewTree(tc.values, hashFunc)
 
 			if tc.err != nil {
-				assert.ErrorIs(t, err, tc.err)
+				require.ErrorIs(t, err, tc.err)
 			} else {
 				assert.Equal(t, tc.expRoot, hex.EncodeToString(tree.Root.Hash), "Tree root mismatch")
 
@@ -533,7 +533,7 @@ func TestVerifyProof(t *testing.T) {
 			require.NoError(t, err)
 
 			isValid, err := tree.VerifyProof(&tc.proof, tc.val)
-			assert.ErrorIs(t, err, tc.err)
+			require.ErrorIs(t, err, tc.err)
 			assert.Equal(t, tc.isValid, isValid, "Proof should be valid")
 		})
 	}
