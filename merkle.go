@@ -2,27 +2,21 @@ package merkle
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
 	"slices"
 	"strings"
-	"sync"
 
-	"golang.org/x/crypto/sha3"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
 	ErrNoLeaves         = errors.New("cannot create a tree with no leaves")
 	ErrNoVal            = errors.New("value not found in the tree")
 	ErrIndexOutOfBounds = errors.New("index out of bounds")
-
-	hashPool = sync.Pool{
-		New: func() interface{} {
-			return sha3.NewLegacyKeccak256()
-		},
-	}
 )
 
 // Node represents a node in the Merkle tree
@@ -70,13 +64,28 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 }
 
 // preHashLeaves prehashes the values
-func preHashLeaves(values [][]byte, hashFunc hash.Hash) [][]byte {
+func preHashLeaves(values [][]byte, _ hash.Hash) [][]byte {
 	preHashedLeaves := make([][]byte, len(values))
 
+	numWorkers := 8
+	if len(values) < numWorkers {
+		numWorkers = len(values)
+	}
+
+	var g errgroup.Group
+	g.SetLimit(numWorkers)
+
 	for i := 0; i < len(values); i++ {
-		hashFunc.Reset()
-		hashFunc.Write(values[i])
-		preHashedLeaves[i] = hashFunc.Sum(nil)
+		g.Go(func() error {
+			hasher := sha256.New()
+			hasher.Write(values[i])
+			preHashedLeaves[i] = hasher.Sum(nil)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		panic(err)
 	}
 
 	return preHashedLeaves
