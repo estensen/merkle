@@ -106,6 +106,8 @@ func TestUpdateLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
 			require.NoError(t, err)
@@ -160,6 +162,8 @@ func TestRemoveLeaf(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			hashFunc := sha256.New
 			tree, err := NewTree(tc.initial, hashFunc)
 			require.NoError(t, err)
@@ -310,6 +314,8 @@ func TestGenerateProof(t *testing.T) {
 }
 
 func TestVerifyProof(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		values  [][]byte
@@ -436,7 +442,7 @@ func TestVerifyProof(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			//t.Parallel()
+			t.Parallel()
 
 			hashFunc := sha256.New
 			tree, err := NewTree(tc.values, hashFunc)
