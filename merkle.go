@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"golang.org/x/crypto/sha3"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -52,7 +51,7 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 		return nil, ErrNoLeaves
 	}
 
-	preHashedLeaves := preHashLeaves(values, len(values)/4)
+	preHashedLeaves := preHashLeaves(values, hashFunc)
 
 	// Convert leaves into Nodes
 	nodes := make([]*Node, len(preHashedLeaves))
@@ -71,34 +70,13 @@ func NewTree(values [][]byte, hashFunc hash.Hash) (*Tree, error) {
 }
 
 // preHashLeaves prehashes the values
-func preHashLeaves(values [][]byte, batchSize int) [][]byte {
+func preHashLeaves(values [][]byte, hashFunc hash.Hash) [][]byte {
 	preHashedLeaves := make([][]byte, len(values))
 
-	var g errgroup.Group
-	g.SetLimit(8)
-
-	for batchStart := 0; batchStart < len(values); batchStart += batchSize {
-		batchEnd := batchStart + batchSize
-		if batchEnd > len(values) {
-			batchEnd = len(values)
-		}
-
-		batchStart, batchEnd := batchStart, batchEnd
-		g.Go(func() error {
-			hasher := hashPool.Get().(hash.Hash)
-			defer hashPool.Put(hasher)
-
-			for i := batchStart; i < batchEnd; i++ {
-				hasher.Reset()
-				hasher.Write(values[i])
-				preHashedLeaves[i] = hasher.Sum(nil)
-			}
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		panic(err)
+	for i := 0; i < len(values); i++ {
+		hashFunc.Write(values[i])
+		preHashedLeaves[i] = hashFunc.Sum(nil)
+		hashFunc.Reset()
 	}
 
 	return preHashedLeaves
