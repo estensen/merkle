@@ -46,7 +46,7 @@ func main() {
 	proof, _ := tree.GenerateProof(proofItem)
 
 	// Validate proof
-	isValid, _ := merkle.VerifyProof(proof, proofItem, hashFunc(), tree.Root.Hash)
+	isValid, _ := tree.VerifyProof(proof, proofItem)
 	if !isValid {
 		fmt.Printf("%s is in the tree\n", proofItem)
 	} else {
